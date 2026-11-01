@@ -5,7 +5,7 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'Baleen',
-  version: '0.0.0',
+  version: '1.0.0',
   description:
     'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek API key.',
   // 123 is the first Chrome with `light-dark()`; the UI tokens depend on it.
