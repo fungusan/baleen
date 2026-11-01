@@ -7,6 +7,7 @@ dist/
 # Editor and agent tooling
 .qoder/
 skills-lock.json
+__pycache__/
 
 # Design sources: only the character master that the shipped render comes from is versioned
 art-src/*

@@ -2,30 +2,44 @@ import type { CharacterId } from './types';
 
 export interface Character {
   id: CharacterId;
-  /** Display label used in the card's accessible name. */
+  /** Accessible name for the card. */
   name: string;
+  /** Short card label; every entry is the same girl in a different outfit. */
+  look: string;
   /** Glow colour, taken from the character's palette in the supplied art. */
   accent: string;
   /** Width / height of the trimmed full-body art, so the overlay box hugs the figure. */
   aspect: number;
+  /** How far the drawn head sits from the canvas top and right edges, as canvas fractions. */
+  inset: { top: number; right: number };
 }
-// One girl ships in this build: DeepSeek. The ID stays stable so existing settings and art paths
-// survive; the name is a label, not a claim of affiliation.
+// One girl ships in this build, in two outfits. IDs are the storage/art keys.
 export const CHARACTERS: readonly Character[] = [
   {
     id: 'deepseek',
-    name: 'DeepSeek',
+    name: 'DeepSeek, maid',
+    look: 'Maid',
     accent: '#2f4a8a',
-    aspect: 0.667,
+    aspect: 0.553,
+    inset: { top: 0, right: 0.094 },
+  },
+  {
+    id: 'deepseek-school',
+    name: 'DeepSeek, school uniform',
+    look: 'School',
+    accent: '#3457a0',
+    aspect: 0.521,
+    inset: { top: 0, right: 0.216 },
   },
 ];
+export const DEFAULT_CHARACTER: CharacterId = 'deepseek';
 export const characterById = (id: CharacterId): Character =>
   CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 /**
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '23';
+const ART_REVISION = '26';
 const assetVersion = () => {
   try {
     const version =
@@ -41,7 +55,7 @@ const assetVersion = () => {
     return `dev-${ART_REVISION}`;
   }
 };
-/** The single idle render; she has no other drawings. */
+/** The idle render for one outfit; she has no other drawings. */
 export const artURL = (id: CharacterId) => `characters/${id}/full.webp?v=${assetVersion()}`;
-/** Head badge derived from the same transparent render, for the companion card. */
+/** Head badge derived from the same transparent render, for the companion card and the pickers. */
 export const headURL = (id: CharacterId) => `characters/${id}/head.png?v=${assetVersion()}`;

@@ -1,10 +1,15 @@
-import { DEFAULT_MODEL, DEEPSEEK_MODELS, THEMES } from './types';
-import type { DeepSeekModel, Settings, Theme } from './types';
+import { DEFAULT_CHARACTER } from './characters';
+import { CHARACTER_IDS, DEFAULT_MODEL, DEEPSEEK_MODELS, THEMES } from './types';
+import type { CharacterId, DeepSeekModel, Settings, Theme } from './types';
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const character = (v: unknown): CharacterId =>
+  typeof v === 'string' && (CHARACTER_IDS as readonly string[]).includes(v)
+    ? (v as CharacterId)
+    : DEFAULT_CHARACTER;
 const model = (v: unknown): DeepSeekModel =>
   typeof v === 'string' && (DEEPSEEK_MODELS as readonly string[]).includes(v)
     ? (v as DeepSeekModel)
@@ -15,15 +20,17 @@ export function sanitizeSettings(raw: unknown): Settings {
   const v = record(raw);
   const p = record(v.position);
   return {
-    version: 5,
+    version: 7,
     theme: theme(v.theme),
     scale: finite(v.scale) ? Math.max(0.6, Math.min(1.6, v.scale)) : 1,
     hidden: bool(v.hidden, false),
+    animate: bool(v.animate, true),
     position:
       finite(p.x) && finite(p.y)
         ? { x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)) }
         : null,
     model: model(v.model),
+    character: character(v.character),
   };
 }
 // Deliberately unchanged across the rename: the key is what keeps an existing install's

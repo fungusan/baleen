@@ -51,9 +51,14 @@ export function createCharacter(id: CharacterId) {
     const character = characterById(value);
     element.dataset.character = value;
     element.style.setProperty('--accent', character.accent);
+    element.style.setProperty('--art-top', String(character.inset.top));
+    element.style.setProperty('--art-right', String(character.inset.right));
     element.setAttribute('aria-label', character.name);
     image.src = source(value);
     image.alt = character.name;
+  }
+  function setAnimated(value: boolean) {
+    element.dataset.animated = String(value);
   }
   function visibility() {
     element.dataset.paused = String(document.hidden);
@@ -61,11 +66,13 @@ export function createCharacter(id: CharacterId) {
   document.addEventListener('visibilitychange', visibility);
   setCharacter(id);
   element.dataset.pose = look;
+  setAnimated(true);
   visibility();
   return {
     element,
     setCharacter,
     setLook,
+    setAnimated,
     destroy() {
       document.removeEventListener('visibilitychange', visibility);
       element.remove();

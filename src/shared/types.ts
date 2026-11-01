@@ -1,5 +1,5 @@
 // The shipped AI-girl roster. IDs are the storage/art keys; names are display-only.
-export const CHARACTER_IDS = ['deepseek'] as const;
+export const CHARACTER_IDS = ['deepseek', 'deepseek-school'] as const;
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 // Decorative motions she can play; every one uses the same idle drawing.
 export type Look = 'idle' | 'listen' | 'thinking' | 'speak' | 'happy' | 'sad' | 'rest';
@@ -20,15 +20,17 @@ export const DEEPSEEK_MODEL_LABELS: Record<DeepSeekModel, string> = {
 };
 export const DEFAULT_MODEL: DeepSeekModel = 'deepseek-flash';
 export interface Settings {
-  version: 5;
+  version: 7;
   theme: Theme;
   scale: number;
   hidden: boolean;
+  animate: boolean;
   position: Position | null;
   model: DeepSeekModel;
+  character: CharacterId;
 }
 export type SettingsPatch = Partial<
-  Pick<Settings, 'theme' | 'scale' | 'hidden' | 'position' | 'model'>
+  Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model' | 'character'>
 >;
 export type AskAction = 'chat' | 'summarize' | 'keywords';
 export interface ChatTurn {

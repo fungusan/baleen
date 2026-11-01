@@ -3,19 +3,25 @@
 Manifest V3 Chromium extension (`0.0.0`). She appears on every HTTP(S) page as a single idle drawing,
 opens a chat window beside any section you highlight, and pulls keywords or a whole-page summary
 through the DeepSeek API using your own key. Top-level PDFs
-open in a bundled reader with the same selection chat and Study actions. Size, position, theme, the
-hidden flag, and the chosen model are the only saved preferences.
+open in a bundled reader with the same selection chat and Study actions. The outfit, size, position,
+theme, the hidden and animation flags, and the chosen model are the only saved preferences.
 
 ## Companion
 
-DeepSeek is the only character in this build: one idle render. Her listening, thinking, speaking,
-joy, dejection and rest beats are CSS keyframes on that same drawing — no per-state art — and they
-are driven only by what you do in her own chat blocks and Study panel; page text is never read.
+DeepSeek wears one of two outfits: her maid dress or a school uniform. Hover her to reveal two menu
+buttons, **Study** (keywords, page summary, session tools) and **Character**. The Character
+menu holds her **Outfit** cards, an **Animate** switch, and **Show on pages**; the popup
+keeps only the show-on-pages switch for visibility. Every surface writes the same settings, so a
+choice applies to every tab at once and survives a reload. Each outfit is one idle render. Her
+listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on that drawing — no
+per-state art — and they are driven only by what you do in her own chat blocks and Study panel; page
+text is never read. **Animate** off freezes those keyframes while keeping the drawing and the bubble.
 Reduced-motion users get the static drawing and the bubble. **Show on pages** in the popup hides or
-restores her on every tab (Alt+Shift+G works too — Option+Shift+G on a Mac). Opening the popup
-re-injects her into any tab whose content script a reloaded extension orphaned, so she returns
-without a page refresh. The popup, her panels and her chat blocks follow the device light or dark
-appearance; **Theme** in the popup can pin Light or Dark instead.
+restores her on every tab (Alt+Shift+G works too — Option+Shift+G on a Mac); turning it off from the
+Character menu hides her the same way, and the extension menu or the shortcut brings her back.
+Opening the popup re-injects her into any tab whose content script a reloaded extension orphaned, so
+she returns without a page refresh. The popup, her panels and her chat blocks follow the device light
+or dark appearance; **Theme** in the popup can pin Light or Dark instead.
 
 ## Section chat and Study
 
@@ -25,8 +31,10 @@ section, anchored to its last selected line. The window floats over the article 
 its layout, so a long section never stretches or reflows the page; it stays next to its section as
 you scroll. It opens below the selection, steps above it when the viewport is short of room, and can
 be dragged by its header if you want it elsewhere — the offset is remembered through scrolling and
-reloads. The bottom-right corner resizes the window; the size is kept with the offset, reused by the
-next conversation you open, and never gives way while the page changes. **−** collapses it to a
+reloads. Three marked grips resize it: the **↔** on the right edge changes width, the **↕** on the
+bottom edge changes height, and the **L** corner changes both at once. Each grip is a button, so you
+can also focus it and use the arrow keys (Shift for bigger steps). The size is kept with the offset,
+reused by the next conversation you open, and never gives way while the page changes. **−** collapses it to a
 narrow one-line chip, and **+** on that chip opens it again. Each
 window highlights its section in its own color; new sections take the next unused color from a
 six-color palette, and the dot in the window header opens the palette when you want to change one.
@@ -94,9 +102,10 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
   DeepSeek requests.
 - `src/shared/deepseek.ts` — DeepSeek client, model selection, and prompts.
 - `src/shared/key.ts` — API key validation and local storage.
-- `src/content/` — companion card, the Study menu, and the anchored section chat windows.
-- `src/shared/` — character metadata, settings sanitization, and message types.
-- `public/characters/` — bundled WebP renders and the popup head crop.
+- `src/content/` — companion card, the Study and Character menus, and the anchored section chat
+  windows.
+- `src/shared/` — outfit metadata, settings sanitization, and message types.
+- `public/characters/` — one folder per outfit with its bundled WebP render and head crop.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
 - `public/privacy.html` — privacy notice linked from the popup.
 - `public/icons/` — toolbar icons.
@@ -105,7 +114,8 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 
 ## Artwork
 
-The single idle render comes from the user's supplied cut-out, cleaned of its white rim and
-normalised to one solid-alpha height. Source art was produced for this personal build from the
-user's supplied samples. The samples' creator/license has not been established; no redistribution
-rights are claimed. See `LICENSE`.
+The maid render comes from the user's supplied cut-out; the school-uniform render was generated for
+this build. Both are cut from a solid green background, cleaned of its rim, and normalised to one
+solid-alpha height. Source art was produced for this personal build from the user's supplied
+samples. The samples' creator/license has not been established; no redistribution rights are
+claimed. See `LICENSE`.

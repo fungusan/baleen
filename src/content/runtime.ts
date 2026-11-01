@@ -30,6 +30,8 @@ export async function startCompanion() {
         hide: () => save({ hidden: true }),
         position: (position) => save({ position }),
         model: (model) => save({ model }),
+        character: (character) => save({ character }),
+        animate: (animate) => save({ animate }),
       });
     } else mounted.apply(value);
   }

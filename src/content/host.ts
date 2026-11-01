@@ -1,9 +1,17 @@
 import { characterCSS, createCharacter } from './render/compositor';
 import { renderMarkdown } from './render/markdown';
 import { captureSection, pagePassage, requestAsk, type SectionCapture } from './ask';
-import { CHARACTERS } from '../shared/characters';
+import { CHARACTERS, characterById, headURL } from '../shared/characters';
 import { DEEPSEEK_MODELS, DEEPSEEK_MODEL_LABELS } from '../shared/types';
-import type { ChatTurn, DeepSeekModel, Look, Position, Settings, Theme } from '../shared/types';
+import type {
+  CharacterId,
+  ChatTurn,
+  DeepSeekModel,
+  Look,
+  Position,
+  Settings,
+  Theme,
+} from '../shared/types';
 
 export function clampPosition(
   x: number,
@@ -122,7 +130,7 @@ const CHAT_CSS = `
   .wrap.collapsed .note,
   .wrap.collapsed .form,
   .wrap.collapsed .foot { display:none!important; }
-  .thread { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; padding:9px 12px 8px; overflow:auto; scrollbar-width:thin; }
+  .thread { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; margin-right:14px; padding:9px 0 8px 12px; overflow:auto; scrollbar-width:thin; }
   .thread[hidden],.note[hidden],.copy[hidden] { display:none!important; }
   .msg-user { align-self:flex-end; max-width:86%; padding:6px 10px; border-radius:10px; background:var(--accent-soft); color:var(--ink); font:12px/1.55 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; white-space:pre-wrap; overflow-wrap:anywhere; }
   .msg-assistant { align-self:stretch; color:var(--ink); font:12.5px/1.7 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; overflow-wrap:anywhere; }
@@ -145,10 +153,25 @@ const CHAT_CSS = `
   .thought[open] summary::before { transform:rotate(90deg); }
   .thought-body { margin:3px 0 2px; padding-left:10px; border-left:2px solid var(--line); max-height:170px; overflow:auto; color:var(--muted); font:11.5px/1.65 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; overflow-wrap:anywhere; scrollbar-width:thin; }
   .thought-body.markdown p,.thought-body.markdown li { font:inherit; }
-  .resize { position:absolute; right:0; bottom:0; width:18px; height:18px; padding:0; border:0; background:transparent; cursor:nwse-resize; touch-action:none; opacity:.5; transition:opacity .15s; }
-  .resize::before { content:""; position:absolute; right:4px; bottom:4px; width:7px; height:7px; border-right:1.5px solid var(--stone); border-bottom:1.5px solid var(--stone); }
-  .resize:hover,.resize:focus-visible,.wrap:hover .resize { opacity:1; }
-  .wrap.collapsed .resize { display:none; }
+  /* Three grips mark how the window scales: the right edge stretches width, the bottom edge height,
+     and the corner both at once. Arrows say which way each grip moves, so the edge grips do not read
+     as scrollbars. The thread keeps a gutter on its right so the width grip clears its scrollbar. */
+  .grip { position:absolute; z-index:2; padding:0; border:0; background:transparent; touch-action:none; opacity:.8; transition:opacity .15s,background .15s; }
+  .grip::before { content:""; position:absolute; border-radius:2px; background:var(--muted); transition:background .15s,color .15s; }
+  .grip:hover,.grip:focus-visible,.wrap:hover .grip { opacity:1; }
+  .grip:hover::before,.grip:focus-visible::before { background:var(--accent); }
+  .grip-x,.grip-y { display:flex; align-items:center; justify-content:center; border-radius:6px; color:var(--muted); }
+  .grip-x:hover,.grip-y:hover,.grip-x:focus-visible,.grip-y:focus-visible { background:var(--sunken); }
+  .grip-x::before,.grip-y::before { position:static; padding:2px 3px; border-radius:5px; background:var(--sunken); box-shadow:inset 0 0 0 1px var(--line); color:inherit; font:11px/1 var(--mono); }
+  .grip-x::before { content:"\\2194"; padding:2px 3px; }
+  .grip-y::before { content:"\\2195"; font-size:10px; padding:1px 3px; }
+  .grip-x:hover::before,.grip-y:hover::before,.grip-x:focus-visible::before,.grip-y:focus-visible::before { background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line); color:var(--accent); }
+  .grip-x { top:50%; right:1px; width:14px; height:40px; transform:translateY(-50%); cursor:ew-resize; }
+  .grip-y { left:18px; right:28px; bottom:0; height:14px; cursor:ns-resize; }
+  .grip-corner { right:1px; bottom:1px; width:24px; height:24px; cursor:nwse-resize; }
+  .grip-corner::before { right:4px; bottom:4px; width:13px; height:13px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); border-radius:0; background:none; }
+  .grip-corner:hover::before,.grip-corner:focus-visible::before { border-color:var(--accent); background:none; }
+  .wrap.collapsed .grip { display:none; }
   .note { margin:0; padding:0 12px 6px; color:var(--faint); font:9px/1.5 var(--mono); }
   .form { display:flex; align-items:flex-end; gap:6px; margin:0 10px; padding:5px 5px 5px 9px; border:1px solid var(--line); border-radius:10px; background:var(--sunken); transition:border-color .15s,box-shadow .15s; }
   .form:focus-within { border-color:var(--accent-line); box-shadow:0 0 0 2px var(--accent-soft); }
@@ -158,7 +181,7 @@ const CHAT_CSS = `
   .send { flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:var(--accent); color:var(--on-accent); font:13px/1 var(--mono); transition:background .15s,color .15s; }
   .send:hover:not(:disabled) { background:var(--accent-hover); }
   .send:disabled { background:var(--sunken); color:var(--faint); cursor:default; }
-  .foot { display:flex; align-items:center; gap:4px; padding:5px 10px 7px; }
+  .foot { display:flex; align-items:center; gap:4px; padding:5px 28px 9px 10px; }
   .seg { display:inline-flex; gap:0; }
   .seg button { padding:2px 6px; border-radius:5px; color:var(--faint); font:9px/1.5 var(--mono); white-space:nowrap; transition:background .15s,color .15s; }
   .seg button:hover:not(:disabled) { color:var(--ink); }
@@ -167,7 +190,7 @@ const CHAT_CSS = `
   .usage { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--faint); font:9px/1.5 var(--mono); text-align:right; }
   .copy { flex:none; padding:2px 5px; border-radius:5px; color:var(--muted); font:9px/1.5 var(--mono); transition:background .15s,color .15s; }
   .copy:hover { background:var(--sunken); color:var(--ink); }
-  @media (max-width:640px) { .head { padding:6px 5px 6px 8px; } .thread { padding:8px 10px 2px; } .form { margin:0 8px; } .foot { padding:4px 8px 6px; } }
+  @media (max-width:640px) { .head { padding:6px 5px 6px 8px; } .thread { padding:8px 0 2px 10px; } .form { margin:0 8px; } .foot { padding:4px 26px 8px 8px; } }
   ${MARKDOWN_CSS}
 `;
 
@@ -272,6 +295,9 @@ interface ChatModelSwitch {
   sync(): void;
 }
 
+/** Which dimension a resize grip drives: one edge, or both at once from the corner. */
+type ResizeAxis = 'x' | 'y' | 'both';
+
 interface ChatBlock {
   id: string;
   at: number;
@@ -287,7 +313,6 @@ interface ChatBlock {
   send: HTMLButtonElement;
   thread: HTMLDivElement;
   wrap: HTMLDivElement;
-  resize: HTMLButtonElement;
   usage: HTMLSpanElement;
   copy: HTMLButtonElement;
   collapse: HTMLButtonElement;
@@ -468,6 +493,15 @@ function applyTheme(element: Element, theme: Theme) {
   else element.setAttribute('data-theme', theme);
 }
 
+/** Packaged art path; the dev server serves the same files from the extension root. */
+function assetURL(path: string) {
+  try {
+    return chrome.runtime.getURL(path);
+  } catch {
+    return `/${path}`;
+  }
+}
+
 function downloadText(name: string, text: string): boolean {
   try {
     const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
@@ -491,6 +525,8 @@ export function createHost(
     hide(): void;
     position(value: Position): void;
     model(value: DeepSeekModel): void;
+    character(value: CharacterId): void;
+    animate(value: boolean): void;
   },
 ) {
   const element = document.createElement('div');
@@ -541,6 +577,18 @@ export function createHost(
     .menu-section { border-top:1px solid var(--fg-line); }
     .menu-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:6px 10px 2px; color:var(--fg-faint); font:500 9px/1.4 var(--fg-mono); letter-spacing:.14em; text-transform:uppercase; }
     .menu-count { color:var(--fg-muted); font:9.5px/1.4 var(--fg-mono); letter-spacing:.02em; text-transform:none; }
+    .cards { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:1px 10px 8px; }
+    .card { display:flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-muted); font:9.5px/1.4 var(--fg-mono); text-align:left; transition:background .15s,border-color .15s,color .15s; }
+    .card img { flex:none; width:22px; height:22px; border-radius:2px; object-fit:cover; background:var(--fg-bg); }
+    .card:hover,.card:focus-visible { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
+    .card[aria-pressed="true"] { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); box-shadow:inset 0 0 0 1px var(--fg-accent-line); }
+    .menu-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 10px; }
+    .menu-row + .menu-row { border-top:1px solid var(--fg-line); }
+    .menu-row-label { color:var(--fg-body); font-size:10px; }
+    .switch { position:relative; flex:none; width:30px; height:17px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-stone); transition:background .15s,border-color .15s; }
+    .switch::after { content:""; position:absolute; top:2px; left:2px; width:11px; height:11px; border-radius:2px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,.22); transition:transform .15s; }
+    .switch[aria-checked="true"] { background:var(--fg-accent); border-color:var(--fg-accent); }
+    .switch[aria-checked="true"]::after { transform:translateX(13px); }
     .action-row { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:1px 10px 8px; }
     .action { padding:5px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-body); font:9.5px/1.4 var(--fg-mono); text-align:center; white-space:nowrap; transition:background .15s,border-color .15s,color .15s; }
     .action:hover:not(:disabled),.action:focus-visible { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
@@ -568,7 +616,7 @@ export function createHost(
   `;
   const wrapper = document.createElement('div');
   wrapper.className = 'companion';
-  const character = createCharacter(CHARACTERS[0].id);
+  const character = createCharacter(initial.character);
   const grip = document.createElement('button');
   grip.className = 'grip';
   grip.setAttribute('aria-label', 'Move companion. Drag or use arrow keys.');
@@ -581,7 +629,13 @@ export function createHost(
   studyButton.textContent = 'Study';
   studyButton.setAttribute('aria-expanded', 'false');
   studyButton.setAttribute('aria-controls', 'fg-study');
-  controls.append(studyButton);
+  const characterButton = document.createElement('button');
+  characterButton.type = 'button';
+  characterButton.title = 'Outfit, animation, and visibility';
+  characterButton.textContent = 'Character';
+  characterButton.setAttribute('aria-expanded', 'false');
+  characterButton.setAttribute('aria-controls', 'fg-character');
+  controls.append(studyButton, characterButton);
   const studyPanel = document.createElement('div');
   studyPanel.id = 'fg-study';
   studyPanel.className = 'fg-panel study-panel';
@@ -602,6 +656,45 @@ export function createHost(
   studyBody.className = 'study-body';
   const studySource = document.createElement('p');
   studySource.className = 'menu-note';
+  const lookSection = document.createElement('div');
+  lookSection.className = 'menu-section';
+  const lookLabel = document.createElement('span');
+  lookLabel.className = 'menu-label';
+  lookLabel.textContent = 'Outfit';
+  const lookCards = document.createElement('div');
+  lookCards.className = 'cards';
+  lookCards.setAttribute('role', 'group');
+  lookCards.setAttribute('aria-label', 'Outfit');
+  const lookButtons = CHARACTERS.map((item) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'card';
+    button.dataset.character = item.id;
+    button.title = item.name;
+    button.setAttribute('aria-pressed', 'false');
+    const portrait = document.createElement('img');
+    portrait.src = assetURL(headURL(item.id));
+    portrait.alt = '';
+    portrait.width = 22;
+    portrait.height = 22;
+    const label = document.createElement('span');
+    label.textContent = item.look;
+    button.append(portrait, label);
+    button.onclick = () => {
+      if (current.character === item.id) return;
+      character.setCharacter(item.id);
+      syncLooks(item.id);
+      current = { ...current, character: item.id };
+      actions.character(item.id);
+    };
+    lookCards.append(button);
+    return button;
+  });
+  lookSection.append(lookLabel, lookCards);
+  function syncLooks(id: CharacterId) {
+    for (const button of lookButtons)
+      button.setAttribute('aria-pressed', String(button.dataset.character === id));
+  }
   const actionsSection = document.createElement('div');
   actionsSection.className = 'menu-section';
   const actionsLabel = document.createElement('span');
@@ -665,15 +758,81 @@ export function createHost(
   studyBody.append(studySource, actionsSection, studyResult, studyFoot, sessionSection);
   studyHead.append(studyTitle, studyClose);
   studyPanel.append(studyHead, studyBody);
-  const hide = document.createElement('button');
-  hide.textContent = 'Hide';
-  hide.onclick = actions.hide;
+  const characterPanel = document.createElement('div');
+  characterPanel.id = 'fg-character';
+  characterPanel.className = 'fg-panel';
+  characterPanel.hidden = true;
+  characterPanel.setAttribute('role', 'region');
+  characterPanel.setAttribute('aria-label', 'Character settings');
+  const characterHead = document.createElement('div');
+  characterHead.className = 'menu-head';
+  const characterTitle = document.createElement('span');
+  characterTitle.className = 'menu-title';
+  characterTitle.textContent = 'Character';
+  const characterClose = document.createElement('button');
+  characterClose.type = 'button';
+  characterClose.className = 'menu-close';
+  characterClose.textContent = '×';
+  characterClose.setAttribute('aria-label', 'Close character');
+  const characterBody = document.createElement('div');
+  characterBody.className = 'study-body';
+  function menuSwitch(label: string, hint: string) {
+    const row = document.createElement('div');
+    row.className = 'menu-row';
+    const name = document.createElement('span');
+    name.className = 'menu-row-label';
+    name.textContent = label;
+    const control = document.createElement('button');
+    control.type = 'button';
+    control.className = 'switch';
+    control.setAttribute('role', 'switch');
+    control.setAttribute('aria-checked', 'true');
+    control.setAttribute('aria-label', label);
+    control.title = hint;
+    row.append(name, control);
+    return { row, control };
+  }
+  const animateSwitch = menuSwitch('Animate', 'Play her idle sway and reactions');
+  const shownSwitch = menuSwitch('Show on pages', 'Turn off to hide her on every page');
+  const characterSettings = document.createElement('div');
+  characterSettings.className = 'menu-section';
+  characterSettings.append(animateSwitch.row, shownSwitch.row);
+  const characterNote = document.createElement('p');
+  characterNote.className = 'menu-note';
+  characterNote.textContent =
+    'Turning display off hides her everywhere. Bring her back from the extension menu or Alt/Option+Shift+G.';
+  characterBody.append(lookSection, characterSettings, characterNote);
+  characterHead.append(characterTitle, characterClose);
+  characterPanel.append(characterHead, characterBody);
+  animateSwitch.control.onclick = () => {
+    const animate = animateSwitch.control.getAttribute('aria-checked') !== 'true';
+    animateSwitch.control.setAttribute('aria-checked', String(animate));
+    character.setAnimated(animate);
+    current = { ...current, animate };
+    actions.animate(animate);
+  };
+  shownSwitch.control.onclick = () => {
+    if (shownSwitch.control.getAttribute('aria-checked') !== 'true') return;
+    shownSwitch.control.setAttribute('aria-checked', 'false');
+    actions.hide();
+  };
+  /** Every surface writes the same settings, so the menu reflects changes made in the popup. */
+  function syncCharacterPanel(value: Settings) {
+    syncLooks(value.character);
+    animateSwitch.control.setAttribute('aria-checked', String(value.animate));
+    animateSwitch.control.title = value.animate
+      ? 'Turn off to hold her still'
+      : 'Turn on to play her idle sway and reactions';
+    shownSwitch.control.setAttribute('aria-checked', String(!value.hidden));
+    shownSwitch.control.title = value.hidden
+      ? 'Hidden on every page. Turn this on to bring her back.'
+      : 'Turn off to hide her on every page';
+  }
   const highlightLayer = document.createElement('div');
   highlightLayer.className = 'ask-highlight';
   highlightLayer.setAttribute('aria-hidden', 'true');
   const highlightBoxes: HTMLSpanElement[] = [];
-  controls.append(hide);
-  wrapper.append(highlightLayer, character.element, grip, controls, studyPanel);
+  wrapper.append(highlightLayer, character.element, grip, controls, studyPanel, characterPanel);
   shadow.append(style, wrapper);
   clearStaleHosts();
   document.documentElement.append(element);
@@ -762,11 +921,16 @@ export function createHost(
     actions.model(next);
   }
   function syncOpenClass() {
-    wrapper.classList.toggle('panel-open', !studyPanel.hidden);
+    wrapper.classList.toggle('panel-open', !studyPanel.hidden || !characterPanel.hidden);
   }
   function closeStudy() {
     studyPanel.hidden = true;
     studyButton.setAttribute('aria-expanded', 'false');
+    syncOpenClass();
+  }
+  function closeCharacter() {
+    characterPanel.hidden = true;
+    characterButton.setAttribute('aria-expanded', 'false');
     syncOpenClass();
   }
   function fitPanel() {
@@ -779,6 +943,7 @@ export function createHost(
     const room = below ? innerHeight - y - height - 16 : y - 16;
     const heightLimit = narrow ? '60vh' : `${Math.max(180, Math.min(460, room))}px`;
     studyPanel.style.maxHeight = heightLimit;
+    characterPanel.style.maxHeight = heightLimit;
   }
   function studySourceFor(): { text: string; label: string } | null {
     const text = pagePassage();
@@ -859,6 +1024,7 @@ export function createHost(
     }
   }
   function openStudy() {
+    closeCharacter();
     studyPanel.hidden = false;
     studyButton.setAttribute('aria-expanded', 'true');
     syncOpenClass();
@@ -868,6 +1034,18 @@ export function createHost(
   function toggleStudy() {
     if (studyPanel.hidden) openStudy();
     else closeStudy();
+  }
+  function openCharacter() {
+    closeStudy();
+    characterPanel.hidden = false;
+    characterButton.setAttribute('aria-expanded', 'true');
+    syncOpenClass();
+    fitPanel();
+    syncCharacterPanel(current);
+  }
+  function toggleCharacter() {
+    if (characterPanel.hidden) openCharacter();
+    else closeCharacter();
   }
   function sameBox(a: DOMRect, b: DOMRect) {
     return (
@@ -1021,11 +1199,38 @@ export function createHost(
   }
   /** The conversation floats over the page in document coordinates, so it scrolls with the section
    * instead of being inserted into the article's flow and stretching the layout. */
-  function placeBlock(block: ChatBlock) {
+  function blockWidth(block: ChatBlock) {
     // A collapsed row is a chip: narrower and shorter than the open conversation.
     const limit = block.collapsed ? COLLAPSED_WIDTH : block.width;
-    const width = Math.min(limit, Math.max(140, innerWidth - 16));
-    block.host.style.setProperty('width', `${width}px`, 'important');
+    return Math.min(limit, Math.max(140, innerWidth - 16));
+  }
+  function applyBlockWidth(block: ChatBlock) {
+    block.host.style.setProperty('width', `${blockWidth(block)}px`, 'important');
+  }
+  /** Growth happens from the top-left, so a window never jumps while a grip is dragged; only the
+   * left edge gives way, and only to keep the whole window on screen. */
+  function sizeBlock(block: ChatBlock, left: number) {
+    applyBlockWidth(block);
+    applyBlockSize(block);
+    const maxLeft = scrollX + innerWidth - blockWidth(block) - 4;
+    const next = Math.max(scrollX + 4, Math.min(left, maxLeft));
+    block.host.style.setProperty('left', `${Math.round(next)}px`, 'important');
+  }
+  /** Re-seating against the section can move the window when a new height changes which side of it
+   * fits, so the spot just resized into is folded into the drag offset first. */
+  function adoptPlacement(block: ChatBlock) {
+    const box = block.host.getBoundingClientRect();
+    const left = box.left + scrollX;
+    const top = box.top + scrollY;
+    placeBlock(block);
+    const seated = block.host.getBoundingClientRect();
+    block.offsetX += left - (seated.left + scrollX);
+    block.offsetY += top - (seated.top + scrollY);
+    placeBlock(block);
+  }
+  function placeBlock(block: ChatBlock) {
+    const width = blockWidth(block);
+    applyBlockWidth(block);
     let rect: {
       left: number;
       top: number;
@@ -1217,6 +1422,73 @@ export function createHost(
     const limit = Math.max(CHAT_MIN_HEIGHT, innerHeight - 24);
     block.wrap.style.height = `${Math.min(block.height, limit)}px`;
   }
+  /** A grip drags one edge, or the corner, and keeps the opposite edges still. */
+  function bindGrip(block: ChatBlock, grip: HTMLButtonElement, axis: ResizeAxis) {
+    const clampWidth = (value: number) =>
+      clampSize(value, CHAT_MIN_WIDTH, Math.min(CHAT_MAX_WIDTH, innerWidth - 24));
+    const clampHeight = (value: number) =>
+      clampSize(value, CHAT_MIN_HEIGHT, Math.min(CHAT_MAX_HEIGHT, innerHeight - 24));
+    const resize = (width: number, height: number, left: number) => {
+      if (axis !== 'y') block.width = width;
+      if (axis !== 'x') block.height = height;
+      sizeBlock(block, left);
+    };
+    grip.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || block.collapsed) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const box = block.wrap.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startWidth = box.width;
+      const startHeight = box.height;
+      const startLeft = box.left + scrollX;
+      try {
+        grip.setPointerCapture(event.pointerId);
+      } catch {
+        /* Synthetic pointers cannot be captured; the grip listeners still track the drag. */
+      }
+      const move = (moveEvent: PointerEvent) => {
+        if (moveEvent.pointerId !== event.pointerId) return;
+        resize(
+          clampWidth(startWidth + moveEvent.clientX - startX),
+          clampHeight(startHeight + moveEvent.clientY - startY),
+          startLeft,
+        );
+      };
+      const end = (endEvent: PointerEvent) => {
+        if (endEvent.pointerId !== event.pointerId) return;
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', end);
+        grip.removeEventListener('pointercancel', end);
+        if (grip.hasPointerCapture(event.pointerId)) grip.releasePointerCapture(event.pointerId);
+        rememberChatSize(block.width, block.height);
+        adoptPlacement(block);
+        saveChats();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', end);
+      grip.addEventListener('pointercancel', end);
+    });
+    // Arrow keys resize from the keyboard; Shift makes a bigger step.
+    grip.addEventListener('keydown', (event) => {
+      const step = event.shiftKey ? 60 : 20;
+      const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+      const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+      if ((!dx && !dy) || (axis === 'x' && dy) || (axis === 'y' && dx)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const box = block.host.getBoundingClientRect();
+      resize(
+        clampWidth(box.width + dx),
+        clampHeight(box.height + dy),
+        box.left + scrollX,
+      );
+      rememberChatSize(block.width, block.height);
+      adoptPlacement(block);
+      saveChats();
+    });
+  }
   function createChatBlock(
     anchor: ChatAnchor,
     messages: ChatMessage[] = [],
@@ -1290,11 +1562,37 @@ export function createHost(
     copy.textContent = 'Copy';
     copy.hidden = true;
     foot.append(model.element, usage, copy);
-    const resize = make('button', 'resize');
-    resize.type = 'button';
-    resize.title = 'Drag to resize';
-    resize.setAttribute('aria-label', 'Resize section chat');
-    wrap.append(head, palette, thread, note, form, foot, resize);
+    const grips: Array<{
+      element: HTMLButtonElement;
+      axis: ResizeAxis;
+      label: string;
+      hint: string;
+    }> = [
+      {
+        element: make('button', 'grip grip-x'),
+        axis: 'x',
+        label: 'Change section chat width',
+        hint: 'Drag to change width. Arrow keys work too, Shift for bigger steps.',
+      },
+      {
+        element: make('button', 'grip grip-y'),
+        axis: 'y',
+        label: 'Change section chat height',
+        hint: 'Drag to change height. Arrow keys work too, Shift for bigger steps.',
+      },
+      {
+        element: make('button', 'grip grip-corner'),
+        axis: 'both',
+        label: 'Resize section chat',
+        hint: 'Drag to resize. Arrow keys work too, Shift for bigger steps.',
+      },
+    ];
+    for (const grip of grips) {
+      grip.element.type = 'button';
+      grip.element.title = grip.hint;
+      grip.element.setAttribute('aria-label', grip.label);
+    }
+    wrap.append(head, palette, thread, note, form, foot, ...grips.map((grip) => grip.element));
     root.append(style, wrap);
     const imageCount = anchor.media.length || anchor.images.length;
     note.hidden = !imageCount;
@@ -1322,7 +1620,6 @@ export function createHost(
       send,
       thread,
       wrap,
-      resize,
       usage,
       copy,
       collapse,
@@ -1416,49 +1713,7 @@ export function createHost(
       head.addEventListener('pointerup', end);
       head.addEventListener('pointercancel', end);
     });
-    resize.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0 || block.collapsed) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const box = wrap.getBoundingClientRect();
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startWidth = box.width;
-      const startHeight = box.height;
-      try {
-        resize.setPointerCapture(event.pointerId);
-      } catch {
-        /* Synthetic pointers cannot be captured; the handle listeners still track the drag. */
-      }
-      const move = (moveEvent: PointerEvent) => {
-        if (moveEvent.pointerId !== event.pointerId) return;
-        block.width = clampSize(
-          startWidth + moveEvent.clientX - startX,
-          CHAT_MIN_WIDTH,
-          Math.min(CHAT_MAX_WIDTH, innerWidth - 24),
-        );
-        block.height = clampSize(
-          startHeight + moveEvent.clientY - startY,
-          CHAT_MIN_HEIGHT,
-          Math.min(CHAT_MAX_HEIGHT, innerHeight - 24),
-        );
-        applyBlockSize(block);
-        placeBlock(block);
-      };
-      const end = (endEvent: PointerEvent) => {
-        if (endEvent.pointerId !== event.pointerId) return;
-        resize.removeEventListener('pointermove', move);
-        resize.removeEventListener('pointerup', end);
-        resize.removeEventListener('pointercancel', end);
-        if (resize.hasPointerCapture(event.pointerId))
-          resize.releasePointerCapture(event.pointerId);
-        rememberChatSize(block.width, block.height);
-        saveChats();
-      };
-      resize.addEventListener('pointermove', move);
-      resize.addEventListener('pointerup', end);
-      resize.addEventListener('pointercancel', end);
-    });
+    for (const grip of grips) bindGrip(block, grip.element, grip.axis);
     close.onclick = () => closeBlock(block);
     copy.onclick = () => {
       const last = [...block.messages]
@@ -1794,6 +2049,8 @@ export function createHost(
   }
   studyButton.onclick = toggleStudy;
   studyClose.onclick = closeStudy;
+  characterButton.onclick = toggleCharacter;
+  characterClose.onclick = closeCharacter;
   function legacyCopy(value: string): boolean {
     const area = document.createElement('textarea');
     area.value = value;
@@ -1921,6 +2178,7 @@ export function createHost(
       hideAskChip();
       if (path.includes(element)) return;
       closeStudy();
+      closeCharacter();
     },
     { capture: true, signal: abort.signal },
   );
@@ -1943,11 +2201,19 @@ export function createHost(
         return;
       }
       hideAskChip();
-      if (studyPanel.hidden) return;
-      event.preventDefault();
-      event.stopPropagation();
-      closeStudy();
-      studyButton.focus();
+      if (!studyPanel.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeStudy();
+        studyButton.focus();
+        return;
+      }
+      if (!characterPanel.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeCharacter();
+        characterButton.focus();
+      }
     },
     { capture: true, signal: abort.signal },
   );
@@ -2032,9 +2298,13 @@ export function createHost(
     applyTheme(askHost, value.theme);
     for (const block of blocks) applyTheme(block.host, value.theme);
     syncModels();
-    const art = CHARACTERS[0];
+    character.setCharacter(value.character);
+    character.setAnimated(value.animate);
+    syncCharacterPanel(value);
+    const art = characterById(value.character);
+    // Trimmed art: this is the height of the drawn figure, not of a padded canvas.
     height = Math.min(
-      300 * value.scale,
+      260 * value.scale,
       Math.max(120, innerHeight - 24),
       Math.max(120, innerWidth - 24) / art.aspect,
     );
@@ -2087,7 +2357,7 @@ export function createHost(
         y + (event.key === 'ArrowUp' ? -amount : event.key === 'ArrowDown' ? amount : 0),
       );
       persist();
-    } else if (event.key === 'Escape' && studyPanel.hidden) actions.hide();
+    } else if (event.key === 'Escape' && studyPanel.hidden && characterPanel.hidden) actions.hide();
   });
   window.addEventListener(
     'resize',

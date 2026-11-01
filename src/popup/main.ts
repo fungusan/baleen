@@ -1,5 +1,4 @@
 import './popup.css';
-import { headURL } from '../shared/characters';
 import { clearApiKey, normalizeApiKey, readApiKey, writeApiKey } from '../shared/key';
 import { readSettings, watchSettings } from '../shared/settings';
 import { DEEPSEEK_MODELS } from '../shared/types';
@@ -21,14 +20,12 @@ const modelOptionsHTML = DEEPSEEK_MODELS.map(
   (id) =>
     `<button type="button" role="option" class="drop-option" data-model="${id}" aria-selected="false"><span>${MODEL_SHORT[id]}</span><span class="drop-meta">${id === 'deepseek-flash' ? 'Fast' : 'Stronger'}</span></button>`,
 ).join('');
-app.innerHTML = `<header class="top"><img class="portrait" src="${headURL('deepseek')}" alt="" width="28" height="28"><div class="identity"><h1>Baleen</h1><p class="tagline">Whale maid, on every page.</p></div></header>
+app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="icons/128.png" alt="" width="28" height="28"><div class="identity"><h1>Baleen</h1><p class="tagline">Whale companion, on every page.</p></div></header>
 <div class="menu-head"><span>Settings</span>${version ? `<span class="menu-version">v${version}</span>` : ''}</div>
 <div class="rows">
 <p class="group-label">Appearance</p>
 <div class="row"><span class="label" id="theme-label">Theme</span><div class="seg" id="theme" role="radiogroup" aria-labelledby="theme-label"><label><input type="radio" name="theme" value="system"><span>System</span></label><label><input type="radio" name="theme" value="light"><span>Light</span></label><label><input type="radio" name="theme" value="dark"><span>Dark</span></label></div></div>
-<div class="row">
-<div class="cell"><span class="label" id="visible-label">Show on pages</span><button id="visible" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="visible-label" title="${VISIBLE_HINT}"></button></div>
-</div>
+<div class="row"><span class="label" id="visible-label">Show on pages</span><button id="visible" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="visible-label" title="${VISIBLE_HINT}"></button></div>
 <div class="row slider"><label class="label" for="scale">Size</label><output id="size-label" class="value" for="scale">100%</output><input id="scale" type="range" min="0.6" max="1.6" step="0.1" value="1"></div>
 <p class="group-label">Connection</p>
 <div class="row duo">

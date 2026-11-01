@@ -177,12 +177,14 @@ async function request({
 // Nano Banana Pro image references accept a role weight per image, but only in the
 // {id, type: UPLOADED} form — the BASE64 form cannot carry `strength`. References are
 // therefore uploaded through /init-image first, as the API docs show.
-async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, model = 'gemini-image-2', seed }) {
+async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, model = 'gemini-image-2', seed, plainRefs = false, quality, styleId }) {
   if (prompt.length > 7500) fail(`prompt is ${prompt.length} chars; Nano Banana Pro max is 7500`);
   const imageReference = [];
   for (const { file, strength = 'MID' } of refs) {
     const id = await upload(file);
-    imageReference.push({ image: { id, type: 'UPLOADED' }, strength });
+    imageReference.push(
+      plainRefs ? { image: { id, type: 'UPLOADED' } } : { image: { id, type: 'UPLOADED' }, strength },
+    );
   }
   const parameters = {
     prompt,
@@ -192,6 +194,8 @@ async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, mod
     prompt_enhance: 'OFF',
     guidances: { image_reference: imageReference },
   };
+  if (quality) parameters.quality = quality;
+  if (styleId) parameters.style_ids = [styleId];
   if (seed) parameters.seed = Number(seed);
   const res = await fetch(`${API2}/generations`, {
     method: 'POST',
@@ -236,7 +240,7 @@ async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, mod
         url,
         prompt,
         seed: seed ? Number(seed) : null,
-        refs: imageReference.map((ref, i) => ({ file: refs[i].file, ...ref.image, strength: ref.strength })),
+        refs: imageReference.map((ref, i) => ({ file: refs[i].file, ...ref.image, strength: ref.strength ?? null })),
       },
       null,
       2,
@@ -296,6 +300,9 @@ if (cli._[0] === 'claude') {
     height: Number(cli.height ?? 2528),
     model: cli.model ?? 'gemini-image-2',
     seed: cli.seed,
+    plainRefs: cli['plain-refs'] === true,
+    quality: cli.quality,
+    styleId: cli['style-id'],
   });
 } else if (cli._[0] === 'image') {
   if ((!cli.ref && !cli.init) || !cli.prompt || !cli.out) fail('image needs --init or --ref, --prompt and --out');

@@ -47,24 +47,30 @@
 .fg-character[data-pose='rest'] .fg-body {
   animation: fg-rest 10s ease-in-out infinite;
 }
+/* Anchored to the drawn figure, not the canvas: the school render's twin tail is wider than her
+   head, so the bubble follows the head silhouette rather than the box edge. */
 .fg-emote {
   position: absolute;
-  top: 0.5%;
-  right: 0;
-  min-width: 18px;
-  padding: 2px 6px;
+  top: calc(var(--art-top, 0) * 100% - 6px);
+  right: calc(var(--art-right, 0) * 100% - 2px);
+  min-width: 26px;
+  padding: 4px 9px;
   text-align: center;
   background: #fffffff2;
   color: var(--accent, #2f4a8a);
-  border-radius: 10px 10px 10px 3px;
+  border-radius: 14px 14px 14px 4px;
   box-shadow: 0 2px 8px #0002;
   font:
-    700 13px/1.2 system-ui,
+    700 16px/1.2 system-ui,
     sans-serif;
   pointer-events: none;
 }
 .fg-emote:empty {
   display: none;
+}
+/* The Character menu can stop the decorative motion; she then holds the pose still. */
+.fg-character[data-animated='false'] .fg-body {
+  animation: none !important;
 }
 .fg-character[data-paused='true'],
 .fg-character[data-paused='true'] * {
