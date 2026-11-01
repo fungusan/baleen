@@ -28,8 +28,8 @@ export const CHARACTERS: readonly Character[] = [
     name: 'DeepSeek, school uniform',
     look: 'School',
     accent: '#3457a0',
-    aspect: 0.521,
-    inset: { top: 0, right: 0.216 },
+    aspect: 0.530,
+    inset: { top: 0, right: 0.223 },
   },
 ];
 export const DEFAULT_CHARACTER: CharacterId = 'deepseek';
@@ -39,7 +39,7 @@ export const characterById = (id: CharacterId): Character =>
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '26';
+const ART_REVISION = '28';
 const assetVersion = () => {
   try {
     const version =

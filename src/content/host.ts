@@ -527,6 +527,7 @@ export function createHost(
     model(value: DeepSeekModel): void;
     character(value: CharacterId): void;
     animate(value: boolean): void;
+    scale(value: number): void;
   },
 ) {
   const element = document.createElement('div');
@@ -585,6 +586,11 @@ export function createHost(
     .menu-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 10px; }
     .menu-row + .menu-row { border-top:1px solid var(--fg-line); }
     .menu-row-label { color:var(--fg-body); font-size:10px; }
+    .slider-row { padding:0 10px 8px; }
+    .slider { width:100%; height:14px; margin:0; cursor:pointer; background:transparent; -webkit-appearance:none; appearance:none; }
+    .slider::-webkit-slider-runnable-track { height:2px; border-radius:999px; background:linear-gradient(to right,var(--fg-accent) var(--fill,40%),var(--fg-stone) var(--fill,40%)); }
+    .slider::-webkit-slider-thumb { width:10px; height:10px; margin-top:-4px; background:var(--fg-bg); border:2px solid var(--fg-accent); border-radius:2px; -webkit-appearance:none; appearance:none; }
+    .slider:focus-visible { outline:2px solid var(--fg-accent); outline-offset:3px; }
     .switch { position:relative; flex:none; width:30px; height:17px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-stone); transition:background .15s,border-color .15s; }
     .switch::after { content:""; position:absolute; top:2px; left:2px; width:11px; height:11px; border-radius:2px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,.22); transition:transform .15s; }
     .switch[aria-checked="true"] { background:var(--fg-accent); border-color:var(--fg-accent); }
@@ -695,6 +701,39 @@ export function createHost(
     for (const button of lookButtons)
       button.setAttribute('aria-pressed', String(button.dataset.character === id));
   }
+  // Size sits under the outfit cards: the same slider the popup carries, applied to the live card.
+  const sizeSection = document.createElement('div');
+  sizeSection.className = 'menu-section';
+  const sizeLabel = document.createElement('span');
+  sizeLabel.className = 'menu-label';
+  const sizeName = document.createElement('span');
+  sizeName.textContent = 'Size';
+  const sizeValue = document.createElement('span');
+  sizeValue.className = 'menu-count';
+  sizeLabel.append(sizeName, sizeValue);
+  const sizeRow = document.createElement('div');
+  sizeRow.className = 'slider-row';
+  const sizeInput = document.createElement('input');
+  sizeInput.type = 'range';
+  sizeInput.className = 'slider';
+  sizeInput.min = '0.6';
+  sizeInput.max = '1.6';
+  sizeInput.step = '0.1';
+  sizeInput.value = '1';
+  sizeInput.setAttribute('aria-label', 'Companion size');
+  sizeRow.append(sizeInput);
+  sizeSection.append(sizeLabel, sizeRow);
+  function paintSize(scale: number) {
+    sizeInput.style.setProperty('--fill', `${((scale - 0.6) / 1) * 100}%`);
+    sizeValue.textContent = `${Math.round(scale * 100)}%`;
+  }
+  sizeInput.oninput = () => {
+    const scale = Number(sizeInput.value);
+    paintSize(scale);
+    current = { ...current, scale };
+    resize(scale);
+  };
+  sizeInput.onchange = () => actions.scale(Number(sizeInput.value));
   const actionsSection = document.createElement('div');
   actionsSection.className = 'menu-section';
   const actionsLabel = document.createElement('span');
@@ -801,7 +840,7 @@ export function createHost(
   characterNote.className = 'menu-note';
   characterNote.textContent =
     'Turning display off hides her everywhere. Bring her back from the extension menu or Alt/Option+Shift+G.';
-  characterBody.append(lookSection, characterSettings, characterNote);
+  characterBody.append(lookSection, sizeSection, characterSettings, characterNote);
   characterHead.append(characterTitle, characterClose);
   characterPanel.append(characterHead, characterBody);
   animateSwitch.control.onclick = () => {
@@ -819,6 +858,8 @@ export function createHost(
   /** Every surface writes the same settings, so the menu reflects changes made in the popup. */
   function syncCharacterPanel(value: Settings) {
     syncLooks(value.character);
+    paintSize(value.scale);
+    if (document.activeElement !== sizeInput) sizeInput.value = String(value.scale);
     animateSwitch.control.setAttribute('aria-checked', String(value.animate));
     animateSwitch.control.title = value.animate
       ? 'Turn off to hold her still'
@@ -2291,6 +2332,24 @@ export function createHost(
       y: y / Math.max(1, innerHeight - height),
     });
   }
+  function resize(scale: number) {
+    const art = characterById(current.character);
+    // Trimmed art: this is the height of the drawn figure, not of a padded canvas.
+    height = Math.min(
+      // 312 is what 120% used to draw; 100% now means that size.
+      312 * scale,
+      Math.max(120, innerHeight - 24),
+      Math.max(120, innerWidth - 24) / art.aspect,
+    );
+    width = height * art.aspect;
+    wrapper.style.width = `${width}px`;
+    wrapper.style.height = `${height}px`;
+    const position = current.position;
+    move(
+      position ? position.x * (innerWidth - width) : innerWidth - width - 16,
+      position ? position.y * (innerHeight - height) : innerHeight - height - 20,
+    );
+  }
   function apply(value: Settings) {
     current = value;
     modelChoice = value.model;
@@ -2301,21 +2360,7 @@ export function createHost(
     character.setCharacter(value.character);
     character.setAnimated(value.animate);
     syncCharacterPanel(value);
-    const art = characterById(value.character);
-    // Trimmed art: this is the height of the drawn figure, not of a padded canvas.
-    height = Math.min(
-      260 * value.scale,
-      Math.max(120, innerHeight - 24),
-      Math.max(120, innerWidth - 24) / art.aspect,
-    );
-    width = height * art.aspect;
-    wrapper.style.width = `${width}px`;
-    wrapper.style.height = `${height}px`;
-    const position = value.position;
-    move(
-      position ? position.x * (innerWidth - width) : innerWidth - width - 16,
-      position ? position.y * (innerHeight - height) : innerHeight - height - 20,
-    );
+    resize(value.scale);
     // The viewport moved the anchor rects and may have changed how much room a window has, so the
     // windows are re-seated beside their sections at their stored size.
     for (const block of blocks) {

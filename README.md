@@ -9,13 +9,14 @@ theme, the hidden and animation flags, and the chosen model are the only saved p
 ## Companion
 
 DeepSeek wears one of two outfits: her maid dress or a school uniform. Hover her to reveal two menu
-buttons, **Study** (keywords, page summary, session tools) and **Character**. The Character
-menu holds her **Outfit** cards, an **Animate** switch, and **Show on pages**; the popup
-keeps only the show-on-pages switch for visibility. Every surface writes the same settings, so a
-choice applies to every tab at once and survives a reload. Each outfit is one idle render. Her
-listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on that drawing — no
-per-state art — and they are driven only by what you do in her own chat blocks and Study panel; page
-text is never read. **Animate** off freezes those keyframes while keeping the drawing and the bubble.
+buttons, **Study** (keywords, page summary, session tools) and **Character**. The Character menu
+holds her **Outfit** cards, a **Size** slider under them, an **Animate** switch, and **Show on
+pages**; the popup keeps the same size slider and the show-on-pages switch. Every surface writes the
+same settings, so a choice applies to every tab at once and survives a reload. Each outfit is one
+idle render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
+that drawing — no per-state art — and they are driven only by what you do in her own chat blocks and
+Study panel; page text is never read. **Animate** off freezes those keyframes while keeping the
+drawing and the bubble.
 Reduced-motion users get the static drawing and the bubble. **Show on pages** in the popup hides or
 restores her on every tab (Alt+Shift+G works too — Option+Shift+G on a Mac); turning it off from the
 Character menu hides her the same way, and the extension menu or the shortcut brings her back.
