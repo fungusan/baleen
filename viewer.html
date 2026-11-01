@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF · Baleen</title>
+  </head>
+  <body>
+    <header id="bar">
+      <div class="doc">
+        <span class="kick">Baleen reader</span>
+        <h1 id="name">PDF</h1>
+      </div>
+      <div class="tools">
+        <button id="zoom-out" type="button" aria-label="Zoom out">&minus;</button>
+        <button id="zoom-fit" type="button" title="Fit width">Fit</button>
+        <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button id="download" type="button">Download</button>
+        <button id="original" type="button" title="Open in Chrome's PDF viewer">Open original</button>
+      </div>
+    </header>
+    <main id="doc" aria-label="PDF pages"></main>
+    <div id="status" role="status" hidden></div>
+    <script type="module" src="/src/viewer/main.ts"></script>
+  </body>
+</html>

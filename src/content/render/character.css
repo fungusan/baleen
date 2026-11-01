@@ -1,0 +1,127 @@
+.fg-character {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+}
+/* One idle drawing; every look below is a keyframe swap on this same body, so nothing is redrawn. */
+.fg-body {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  animation: fg-idle 7s ease-in-out infinite;
+}
+.fg-art {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Never stretch the art: if a canvas ratio ever drifts from `aspect`, she letterboxes on the
+     floor instead of being squeezed sideways. */
+  object-fit: contain;
+  object-position: 50% 100%;
+  filter: drop-shadow(0 14px 18px #1711293d);
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+.fg-character[data-pose='listen'] .fg-body {
+  animation: fg-listen 2.6s ease-in-out infinite;
+}
+/* Tilt away and hold, the way a hand under the chin would read at this size. */
+.fg-character[data-pose='thinking'] .fg-body {
+  animation: fg-thinking 3.4s ease-in-out infinite;
+}
+/* Talking cadence: a shallow nod, fast enough to read as speech without a mouth plate. */
+.fg-character[data-pose='speak'] .fg-body {
+  animation: fg-speak 0.62s ease-in-out infinite;
+}
+.fg-character[data-pose='happy'] .fg-body {
+  animation: fg-happy 0.9s cubic-bezier(0.22, 1.4, 0.4, 1) 1;
+}
+.fg-character[data-pose='sad'] .fg-body {
+  animation: fg-sad 4.6s ease-in-out infinite;
+  filter: saturate(0.82) brightness(0.97);
+}
+.fg-character[data-pose='rest'] .fg-body {
+  animation: fg-rest 10s ease-in-out infinite;
+}
+.fg-emote {
+  position: absolute;
+  top: 0.5%;
+  right: 0;
+  min-width: 18px;
+  padding: 2px 6px;
+  text-align: center;
+  background: #fffffff2;
+  color: var(--accent, #2f4a8a);
+  border-radius: 10px 10px 10px 3px;
+  box-shadow: 0 2px 8px #0002;
+  font:
+    700 13px/1.2 system-ui,
+    sans-serif;
+  pointer-events: none;
+}
+.fg-emote:empty {
+  display: none;
+}
+.fg-character[data-paused='true'],
+.fg-character[data-paused='true'] * {
+  animation-play-state: paused !important;
+}
+@keyframes fg-idle {
+  50% {
+    transform: translateY(-3.5px) rotate(0.6deg);
+  }
+}
+/* Attention: a small lift toward the page while she waits or reads. */
+@keyframes fg-listen {
+  50% {
+    transform: translateY(-2px) rotate(-1.1deg);
+  }
+}
+@keyframes fg-thinking {
+  45%,
+  65% {
+    transform: translateY(-1px) rotate(-1.8deg);
+  }
+}
+@keyframes fg-speak {
+  50% {
+    transform: translateY(-1.5px) rotate(0.5deg);
+  }
+}
+/* Joy: one hop on the reaction beat, then she settles. */
+@keyframes fg-happy {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  35% {
+    transform: translateY(-7px) rotate(1.4deg) scale(1.01);
+  }
+  65% {
+    transform: translateY(0) rotate(-0.8deg) scale(1);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+/* Dejection: a slow, shallow slump that never fully comes back up. */
+@keyframes fg-sad {
+  50% {
+    transform: translateY(2.5px) rotate(-1deg) scaleY(0.995);
+  }
+}
+/* Rest: a longer, heavier sway with her weight settled. */
+@keyframes fg-rest {
+  50% {
+    transform: translateY(3px) rotate(0.4deg);
+  }
+}
+/* Decorative motion only: reduced-motion users keep the static drawing and the bubble. */
+@media (prefers-reduced-motion: reduce) {
+  .fg-character .fg-body {
+    animation: none !important;
+  }
+}
