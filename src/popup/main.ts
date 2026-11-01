@@ -20,8 +20,7 @@ const modelOptionsHTML = DEEPSEEK_MODELS.map(
   (id) =>
     `<button type="button" role="option" class="drop-option" data-model="${id}" aria-selected="false"><span>${MODEL_SHORT[id]}</span><span class="drop-meta">${id === 'deepseek-flash' ? 'Fast' : 'Stronger'}</span></button>`,
 ).join('');
-app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="icons/128.png" alt="" width="28" height="28"><div class="identity"><h1>Baleen</h1><p class="tagline">Whale companion, on every page.</p></div></header>
-<div class="menu-head"><span>Settings</span>${version ? `<span class="menu-version">v${version}</span>` : ''}</div>
+app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="icons/128.png" alt="" width="28" height="28"><div class="identity"><h1>Baleen</h1><p class="tagline">Whale companion, on every page.</p></div>${version ? `<span class="menu-version">v${version}</span>` : ''}</header>
 <div class="rows">
 <p class="group-label">Appearance</p>
 <div class="row"><span class="label" id="theme-label">Theme</span><div class="seg" id="theme" role="radiogroup" aria-labelledby="theme-label"><label><input type="radio" name="theme" value="system"><span>System</span></label><label><input type="radio" name="theme" value="light"><span>Light</span></label><label><input type="radio" name="theme" value="dark"><span>Dark</span></label></div></div>
@@ -29,13 +28,13 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <div class="row slider"><label class="label" for="scale">Size</label><output id="size-label" class="value" for="scale">100%</output><input id="scale" type="range" min="0.6" max="1.6" step="0.1" value="1"></div>
 <p class="group-label">Connection</p>
 <div class="row duo">
-<div class="cell"><span class="label" id="model-label">Model</span><div class="dropdown" id="model-dropdown"><button id="model-button" class="drop-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-label"><span id="model-value">Flash</span></button><div id="model-menu" class="drop-menu" role="listbox" aria-labelledby="model-label" hidden>${modelOptionsHTML}</div></div></div>
 <div class="cell"><span class="label" id="key-label">DeepSeek API key</span><button id="key-edit" class="text-button" type="button" aria-labelledby="key-label" aria-expanded="false">Add</button></div>
+<div class="cell"><span class="label" id="model-label">Model</span><div class="dropdown" id="model-dropdown"><button id="model-button" class="drop-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-label"><span id="model-value">Flash</span></button><div id="model-menu" class="drop-menu" role="listbox" aria-labelledby="model-label" hidden>${modelOptionsHTML}</div></div></div>
 </div>
 <form id="key-form" class="key-form" hidden><label class="sr-only" for="key-input">DeepSeek API key</label><div class="key-line"><input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"><button type="submit" class="primary">Save</button></div><div class="key-foot"><p class="hint" id="key-hint">Stored on this device. Sent only to api.deepseek.com when you ask.</p><button type="button" id="key-cancel" class="text-button">Cancel</button><button type="button" id="key-remove" class="text-button" hidden>Remove</button></div></form>
 </div>
 <p id="status" role="status"></p>
-<footer><span>Alt/Option + Shift + G toggles</span><span class="sep" aria-hidden="true">·</span><a href="privacy.html" target="_blank">Privacy & limitations</a></footer>`;
+<footer><span>Alt/Option + Shift + G toggles</span><span class="sep" aria-hidden="true">·</span><a href="privacy.html" target="_blank">About Baleen</a></footer>`;
 
 async function main() {
   let settings = await readSettings();
@@ -88,7 +87,6 @@ async function main() {
   function setModelOpen(open: boolean) {
     modelMenu.hidden = !open;
     modelButton.setAttribute('aria-expanded', String(open));
-    app.classList.toggle('menu-open', open);
     if (!open) return;
     const selected = modelChoices.find((choice) => choice.getAttribute('aria-selected') === 'true');
     (selected ?? modelChoices[0])?.focus();

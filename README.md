@@ -108,7 +108,8 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/shared/` — outfit metadata, settings sanitization, and message types.
 - `public/characters/` — one folder per outfit with its bundled WebP render and head crop.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
-- `public/privacy.html` — privacy notice linked from the popup.
+- `public/privacy.html` — the About Baleen page linked from the popup, with its `privacy.js` theme
+  toggle.
 - `public/icons/` — toolbar icons.
 - `art-src/` — the supplied cut-out behind the shipped render, its reference sheets, and the
   generation prompts kept for provenance.

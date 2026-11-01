@@ -43,15 +43,12 @@ body {
 #app {
   padding: 11px 12px 10px;
 }
-/* Room for the open model menu so the popup does not clip it. */
-#app.menu-open {
-  padding-bottom: 78px;
-}
 
-/* Header — identity, then the settings micro-header that opens the panel. */
+/* Header — identity on the left, version in the far corner. */
 .top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 .portrait {
@@ -68,7 +65,7 @@ body {
 }
 h1 {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   line-height: 1.2;
   letter-spacing: 0.01em;
@@ -81,26 +78,19 @@ h1 {
   line-height: 1.4;
   color: var(--muted);
 }
-.menu-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 12px;
-  padding-bottom: 5px;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
 .menu-version {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 9px;
+  line-height: 1.5;
   letter-spacing: 0.06em;
-  text-transform: none;
   color: var(--accent);
 }
 
 /* Rows — hairline separators, one label group per section. */
 .rows {
+  margin-top: 12px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
@@ -139,7 +129,7 @@ h1 {
 }
 .row.duo {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.3fr 1fr;
   gap: 12px;
   align-items: start;
 }
@@ -280,7 +270,7 @@ select:focus-visible {
 }
 .drop-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  bottom: calc(100% + 4px);
   left: 0;
   right: 0;
   z-index: 10;
@@ -288,7 +278,7 @@ select:focus-visible {
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 6px;
-  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.18);
+  box-shadow: 0 -8px 24px rgba(17, 24, 39, 0.14);
 }
 .drop-menu[hidden] {
   display: none;
@@ -470,6 +460,10 @@ select:focus-visible {
   line-height: 1.5;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+#status:empty {
+  min-height: 0;
+  margin: 0;
 }
 footer {
   display: flex;
