@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+.env*
+
+# Editor and agent tooling
+.qoder/
+skills-lock.json
+
+# Design sources: only the character master that the shipped render comes from is versioned
+art-src/*
+!art-src/deepseek
+art-src/deepseek/*
+!art-src/deepseek/raw
+art-src/deepseek/raw/*
+!art-src/deepseek/raw/master-idle-v2.png
