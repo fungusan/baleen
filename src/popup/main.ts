@@ -34,7 +34,7 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <form id="key-form" class="key-form" hidden><label class="sr-only" for="key-input">DeepSeek API key</label><div class="key-line"><input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"><button type="submit" class="primary">Save</button></div><div class="key-foot"><p class="hint" id="key-hint">Stored on this device. Sent only to api.deepseek.com when you ask.</p><button type="button" id="key-cancel" class="text-button">Cancel</button><button type="button" id="key-remove" class="text-button" hidden>Remove</button></div></form>
 </div>
 <p id="status" role="status"></p>
-<footer><span>Alt/Option + Shift + G toggles</span><span class="sep" aria-hidden="true">·</span><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a></footer>`;
+<footer><span>Alt/Option + Shift + G toggles</span><span class="sep" aria-hidden="true">·</span><a href="privacy.html" target="_blank">About</a><span class="sep" aria-hidden="true">·</span><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a></footer>`;
 
 async function main() {
   let settings = await readSettings();
