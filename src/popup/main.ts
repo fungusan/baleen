@@ -10,7 +10,7 @@ const version =
   typeof chrome !== 'undefined' && typeof chrome.runtime?.getManifest === 'function'
     ? chrome.runtime.getManifest().version
     : '';
-const HIDDEN_HINT = 'Hidden on every page. Turn this on to bring her back.';
+const HIDDEN_HINT = 'Hidden on every page. Inline chat still works. Turn this on to bring her back.';
 const VISIBLE_HINT = 'Shown on every page. Drag her to move.';
 const MODEL_SHORT: Record<DeepSeekModel, string> = {
   'deepseek-flash': 'Flash',
@@ -34,7 +34,7 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <form id="key-form" class="key-form" hidden><label class="sr-only" for="key-input">DeepSeek API key</label><div class="key-line"><input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"><button type="submit" class="primary">Save</button></div><div class="key-foot"><p class="hint" id="key-hint">Stored on this device. Sent only to api.deepseek.com when you ask.</p><button type="button" id="key-cancel" class="text-button">Cancel</button><button type="button" id="key-remove" class="text-button" hidden>Remove</button></div></form>
 </div>
 <p id="status" role="status"></p>
-<footer><span>Alt/Option + Shift + G toggles</span><span class="sep" aria-hidden="true">·</span><a href="privacy.html" target="_blank">About Baleen</a></footer>`;
+<footer><span>Alt/Option + Shift + G toggles</span><span class="sep" aria-hidden="true">·</span><a href="privacy.html" target="_blank">About Baleen</a><span class="sep" aria-hidden="true">·</span><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a></footer>`;
 
 async function main() {
   let settings = await readSettings();
@@ -213,7 +213,8 @@ async function main() {
   };
   const unwatch = watchSettings(render);
   render(await readSettings());
-  if (!settings.hidden) ensureTabs();
+  // Inline chat runs without the character, so hidden pages still need a mounted content script.
+  ensureTabs();
   await loadKey();
   window.addEventListener(
     'pagehide',

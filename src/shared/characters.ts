@@ -16,23 +16,23 @@ export interface Character {
 // One girl ships in this build, in two outfits. IDs are the storage/art keys.
 export const CHARACTERS: readonly Character[] = [
   {
-    id: 'deepseek',
-    name: 'DeepSeek, maid',
+    id: 'baleen',
+    name: 'Baleen, maid',
     look: 'Maid',
     accent: '#2f4a8a',
     aspect: 0.553,
     inset: { top: 0, right: 0.094 },
   },
   {
-    id: 'deepseek-school',
-    name: 'DeepSeek, school uniform',
+    id: 'baleen-school',
+    name: 'Baleen, school uniform',
     look: 'School',
     accent: '#3457a0',
     aspect: 0.530,
     inset: { top: 0, right: 0.223 },
   },
 ];
-export const DEFAULT_CHARACTER: CharacterId = 'deepseek';
+export const DEFAULT_CHARACTER: CharacterId = 'baleen';
 export const characterById = (id: CharacterId): Character =>
   CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 /**

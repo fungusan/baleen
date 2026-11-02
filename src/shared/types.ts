@@ -1,5 +1,5 @@
 // The shipped AI-girl roster. IDs are the storage/art keys; names are display-only.
-export const CHARACTER_IDS = ['deepseek', 'deepseek-school'] as const;
+export const CHARACTER_IDS = ['baleen', 'baleen-school'] as const;
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 // Decorative motions she can play; every one uses the same idle drawing.
 export type Look = 'idle' | 'listen' | 'thinking' | 'speak' | 'happy' | 'sad' | 'rest';

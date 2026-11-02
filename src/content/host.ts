@@ -556,6 +556,12 @@ export function createHost(
     }
     .companion[data-theme="light"] { color-scheme:light; }
     .companion[data-theme="dark"] { color-scheme:dark; }
+    /* Display off hides the character and her own menus, not the inline chat surfaces that live
+       outside this wrapper: selections, the Ask chip, and open section windows keep working. */
+    .companion[data-hidden="true"] .fg-character,
+    .companion[data-hidden="true"] .grip,
+    .companion[data-hidden="true"] .controls,
+    .companion[data-hidden="true"] .fg-panel { display:none!important; }
     button { font:inherit; color:inherit; cursor:pointer; border:0; }
     button:focus-visible { outline:2px solid var(--fg-accent); outline-offset:2px; }
     .grip { position:absolute; inset:0; width:100%; height:100%; background:transparent; pointer-events:auto; cursor:grab; touch-action:none; border-radius:12px; }
@@ -839,7 +845,7 @@ export function createHost(
   const characterNote = document.createElement('p');
   characterNote.className = 'menu-note';
   characterNote.textContent =
-    'Turning display off hides her everywhere. Bring her back from the extension menu or Alt/Option+Shift+G.';
+    'Turning display off hides her everywhere. Inline chat stays on. Bring her back from the extension menu or Alt/Option+Shift+G.';
   characterBody.append(lookSection, sizeSection, characterSettings, characterNote);
   characterHead.append(characterTitle, characterClose);
   characterPanel.append(characterHead, characterBody);
@@ -2352,6 +2358,11 @@ export function createHost(
   }
   function apply(value: Settings) {
     current = value;
+    wrapper.dataset.hidden = String(value.hidden);
+    if (value.hidden) {
+      closeStudy();
+      closeCharacter();
+    }
     modelChoice = value.model;
     applyTheme(wrapper, value.theme);
     applyTheme(askHost, value.theme);

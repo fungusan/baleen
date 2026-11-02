@@ -6,10 +6,17 @@ const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const character = (v: unknown): CharacterId =>
-  typeof v === 'string' && (CHARACTER_IDS as readonly string[]).includes(v)
-    ? (v as CharacterId)
+// Outfit IDs were renamed; an existing install keeps its choice instead of falling back to default.
+const LEGACY_CHARACTERS: Record<string, CharacterId> = {
+  deepseek: 'baleen',
+  'deepseek-school': 'baleen-school',
+};
+const character = (v: unknown): CharacterId => {
+  const value = typeof v === 'string' ? (LEGACY_CHARACTERS[v] ?? v) : v;
+  return typeof value === 'string' && (CHARACTER_IDS as readonly string[]).includes(value)
+    ? (value as CharacterId)
     : DEFAULT_CHARACTER;
+};
 const model = (v: unknown): DeepSeekModel =>
   typeof v === 'string' && (DEEPSEEK_MODELS as readonly string[]).includes(v)
     ? (v as DeepSeekModel)

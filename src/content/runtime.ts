@@ -21,10 +21,8 @@ export async function startCompanion() {
     if (disposed) return;
     // A stale or externally removed card must be rebuilt rather than reapplied.
     if (mounted && !mounted.element.isConnected) unmount();
-    if (value.hidden) {
-      unmount();
-      return;
-    }
+    // The card stays mounted while she is hidden: inline section chat is a service of its own and
+    // must keep working on pages where the character is turned off.
     if (!mounted) {
       mounted = createHost(value, {
         hide: () => save({ hidden: true }),
