@@ -12,6 +12,8 @@ export interface Character {
   aspect: number;
   /** How far the drawn head sits from the canvas top and right edges, as canvas fractions. */
   inset: { top: number; right: number };
+  /** Pixels to raise the fixed-size emote bubble above hair that reaches the canvas top. */
+  lift: number;
 }
 // One girl ships in this build, in two outfits. IDs are the storage/art keys.
 export const CHARACTERS: readonly Character[] = [
@@ -22,6 +24,7 @@ export const CHARACTERS: readonly Character[] = [
     accent: '#2f4a8a',
     aspect: 0.553,
     inset: { top: 0, right: 0.094 },
+    lift: 0,
   },
   {
     id: 'baleen-school',
@@ -30,6 +33,7 @@ export const CHARACTERS: readonly Character[] = [
     accent: '#3457a0',
     aspect: 0.530,
     inset: { top: 0, right: 0.223 },
+    lift: 24,
   },
 ];
 export const DEFAULT_CHARACTER: CharacterId = 'baleen';

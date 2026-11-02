@@ -48,10 +48,11 @@
   animation: fg-rest 10s ease-in-out infinite;
 }
 /* Anchored to the drawn figure, not the canvas: the school render's twin tail is wider than her
-   head, so the bubble follows the head silhouette rather than the box edge. */
+   head, so the bubble follows the head silhouette rather than the box edge. The lift is a fixed
+   pixel amount because the bubble itself never scales; school's hair reaches the very top. */
 .fg-emote {
   position: absolute;
-  top: calc(var(--art-top, 0) * 100% - 6px);
+  top: calc(var(--art-top, 0) * 100% - 6px - var(--art-lift, 0px));
   right: calc(var(--art-right, 0) * 100% - 2px);
   min-width: 26px;
   padding: 4px 9px;

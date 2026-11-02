@@ -53,6 +53,7 @@ export function createCharacter(id: CharacterId) {
     element.style.setProperty('--accent', character.accent);
     element.style.setProperty('--art-top', String(character.inset.top));
     element.style.setProperty('--art-right', String(character.inset.right));
+    element.style.setProperty('--art-lift', `${character.lift}px`);
     element.setAttribute('aria-label', character.name);
     image.src = source(value);
     image.alt = character.name;
