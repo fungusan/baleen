@@ -43,7 +43,7 @@ export const characterById = (id: CharacterId): Character =>
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '28';
+const ART_REVISION = '29';
 const assetVersion = () => {
   try {
     const version =

@@ -1,5 +1,5 @@
 /*
- * Baleen menu. One compact editor panel: monospace micro-headers, hairline-separated rows, square
+ * Baleen menu. One compact editor panel: uppercase micro-headers, hairline-separated rows, square
  * affordances, and the sage green as the only accent. Follows the device theme unless one is pinned.
  */
 :root {
@@ -16,7 +16,8 @@
   --accent-line: rgba(132, 159, 93, 0.45);
   --accent-soft: light-dark(rgba(132, 159, 93, 0.1), rgba(154, 184, 110, 0.14));
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font: 11px/1.5 var(--mono);
+  --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 11.5px/1.5 var(--sans);
   color: var(--body);
   background: var(--bg);
   color-scheme: light dark;
@@ -36,7 +37,7 @@ body {
 }
 body {
   /* Extension pages get a UA body font; pin the panel font here. */
-  font: 11px/1.5 var(--mono);
+  font: 11.5px/1.5 var(--sans);
   margin: 0;
   width: 300px;
 }
@@ -74,7 +75,7 @@ h1 {
 }
 .tagline {
   margin: 2px 0 0;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.4;
   color: var(--muted);
 }
@@ -82,7 +83,7 @@ h1 {
   flex: none;
   align-self: flex-start;
   margin-top: 2px;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.5;
   letter-spacing: 0.06em;
   color: var(--accent);
@@ -97,9 +98,9 @@ h1 {
 .group-label {
   margin: 0;
   padding: 9px 0 3px;
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--faint);
   border-top: 1px solid var(--line);
@@ -143,22 +144,22 @@ h1 {
 .label {
   display: block;
   margin: 0;
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
 }
 .hint {
   margin: 2px 0 0;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.6;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 .value {
   align-self: start;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.4;
   color: var(--faint);
 }
@@ -191,7 +192,7 @@ h1 {
   padding: 3px 7px;
   border-radius: 2px;
   color: var(--muted);
-  font: 9.5px/1.4 var(--mono);
+  font: 10px/1.4 var(--sans);
   white-space: nowrap;
   transition:
     background 0.15s,
@@ -241,7 +242,7 @@ select:focus-visible {
   gap: 8px;
   width: 100%;
   padding: 4px 7px;
-  font: 9.5px/1.4 var(--mono);
+  font: 10px/1.4 var(--sans);
   color: var(--body);
   background: var(--sunken);
   border: 1px solid var(--line);
@@ -290,7 +291,7 @@ select:focus-visible {
   gap: 10px;
   width: 100%;
   padding: 5px 6px;
-  font-size: 9.5px;
+  font-size: 10px;
   color: var(--body);
   border-radius: 3px;
   text-align: left;
@@ -307,7 +308,7 @@ select:focus-visible {
   box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 .drop-meta {
-  font-size: 8.5px;
+  font-size: 9px;
   letter-spacing: 0.04em;
   color: var(--faint);
 }
@@ -379,7 +380,7 @@ select:focus-visible {
 }
 .text-button {
   padding: 3px 7px;
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--muted);
   background: transparent;
   border: 1px solid var(--line);
@@ -410,7 +411,7 @@ select:focus-visible {
   flex: 1;
   min-width: 0;
   padding: 5px 7px;
-  font: 9.5px/1.4 var(--mono);
+  font: 10px/1.4 var(--mono);
   color: var(--ink);
   background: var(--sunken);
   border: 1px solid var(--line);
@@ -426,7 +427,7 @@ select:focus-visible {
 }
 .key-form .primary {
   padding: 5px 9px;
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--ink);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
@@ -456,7 +457,7 @@ select:focus-visible {
 #status {
   min-height: 14px;
   margin: 5px 0 0;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.5;
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -472,7 +473,7 @@ footer {
   justify-content: center;
   gap: 5px;
   margin-top: 7px;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1.5;
   color: var(--faint);
 }

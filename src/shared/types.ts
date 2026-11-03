@@ -32,7 +32,7 @@ export interface Settings {
 export type SettingsPatch = Partial<
   Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model' | 'character'>
 >;
-export type AskAction = 'chat' | 'summarize' | 'keywords';
+export type AskAction = 'chat' | 'talk' | 'summarize' | 'keywords' | 'title';
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -42,7 +42,7 @@ export interface AskRequest {
   model: DeepSeekModel;
   text: string;
   title: string;
-  /** The typed question, for `chat` only. */
+  /** The typed message, for `chat` and `talk`. */
   prompt?: string;
   /** Alt text and captions of images in the selected section; DeepSeek cannot see pixels. */
   images?: string[];

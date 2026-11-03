@@ -43,6 +43,7 @@ const MARKDOWN_CSS = `
     --md-line:var(--line, var(--fg-line)); --md-accent:var(--accent, var(--fg-accent));
     --md-muted:var(--muted, var(--fg-muted)); --md-faint:var(--faint, var(--fg-faint));
     --md-mono:var(--mono, var(--fg-mono));
+    --md-sans:var(--sans, var(--fg-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif));
     white-space:normal;
   }
   .markdown > :first-child { margin-top:0; }
@@ -54,7 +55,7 @@ const MARKDOWN_CSS = `
   .markdown li > ul,.markdown li > ol { margin:2px 0; }
   .markdown strong { color:var(--md-ink); font-weight:600; }
   .markdown h1,.markdown h2,.markdown h3,.markdown h4,.markdown h5,.markdown h6 {
-    margin:8px 0 4px; color:var(--md-ink); font:600 11.5px/1.4 var(--md-mono);
+    margin:8px 0 4px; color:var(--md-ink); font:600 12px/1.4 var(--md-sans);
   }
   .markdown code {
     padding:1px 4px; border:1px solid var(--md-line); border-radius:3px;
@@ -97,10 +98,11 @@ const CHAT_CSS = `
     --danger:light-dark(#b91c1c,#f87171); --on-accent:light-dark(#ffffff,#000000);
     --shadow:0 16px 40px light-dark(rgba(17,24,39,.16),rgba(0,0,0,.55));
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
     color-scheme:light dark;
     position:relative; display:flex; flex-direction:column; overflow:clip; border:1px solid var(--line); border-radius:10px;
     background:var(--bg); box-shadow:var(--shadow); color:var(--body); text-align:left;
-    font:11px/1.6 var(--mono);
+    font:11.5px/1.6 var(--sans);
   }
   :host([data-theme="light"]) .wrap { color-scheme:light; }
   :host([data-theme="dark"]) .wrap { color-scheme:dark; }
@@ -109,8 +111,8 @@ const CHAT_CSS = `
   .head { display:flex; align-items:center; gap:4px; padding:7px 6px 7px 9px; cursor:grab; touch-action:none; }
   .head:active { cursor:grabbing; }
   .titles { flex:1; min-width:0; overflow:hidden; }
-  .name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 10px/1.5 var(--mono); letter-spacing:.01em; }
-  .close,.collapse,.color { flex:none; display:flex; align-items:center; justify-content:center; width:20px; height:20px; padding:0; border:0; border-radius:5px; color:var(--muted); font:12px/1 var(--mono); transition:background .15s,color .15s; }
+  .name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font:600 12.5px/1.5 var(--sans); letter-spacing:.01em; }
+  .close,.collapse,.color { flex:none; display:flex; align-items:center; justify-content:center; width:20px; height:20px; padding:0; border:0; border-radius:5px; color:var(--muted); font:13px/1 var(--sans); transition:background .15s,color .15s; }
   .color { width:18px; }
   .color::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--section, var(--accent)); box-shadow:0 0 0 1px light-dark(rgba(0,0,0,.1),rgba(255,255,255,.16)); }
   .close:hover,.collapse:hover,.color:hover,.close:focus-visible,.collapse:focus-visible,.color:focus-visible { background:var(--sunken); color:var(--ink); }
@@ -119,39 +121,52 @@ const CHAT_CSS = `
   .palette button { width:12px; height:12px; padding:0; border-radius:50%; background:var(--dot); box-shadow:inset 0 0 0 1px rgba(0,0,0,.16); transition:transform .12s; }
   .palette button:hover,.palette button:focus-visible { transform:scale(1.2); }
   .palette button[aria-pressed="true"] { box-shadow:0 0 0 1px var(--bg),0 0 0 2px var(--ink); }
-  .wrap.collapsed .head { gap:3px; padding:2px 4px 2px 5px; }
-  .wrap.collapsed .name { color:var(--muted); font-size:9.5px; }
+  /* Collapsed, the window is just a bookmark in the section's colour: no name, no chrome. */
+  .wrap.collapsed { border:0; background:transparent; box-shadow:none; overflow:visible; }
+  .wrap.collapsed .head { width:100%; height:100%; padding:0; gap:0; cursor:grab; }
+  .wrap.collapsed .titles,
   .wrap.collapsed .close,
-  .wrap.collapsed .collapse,
-  .wrap.collapsed .color { width:16px; height:16px; font-size:10px; }
-  .wrap.collapsed .color::before { width:7px; height:7px; }
+  .wrap.collapsed .color,
   .wrap.collapsed .palette,
   .wrap.collapsed .thread,
   .wrap.collapsed .note,
   .wrap.collapsed .form,
-  .wrap.collapsed .foot { display:none!important; }
+  .wrap.collapsed .foot,
+  .wrap.collapsed .grip { display:none!important; }
+  .wrap.collapsed .collapse {
+    display:block; width:18px; height:28px; margin:1px; padding:0; border:0;
+    border-radius:3px 3px 1px 1px; background:var(--section, var(--accent));
+    clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+    box-shadow:0 2px 6px light-dark(rgba(17,24,39,.18), rgba(0,0,0,.45));
+    color:transparent; font-size:0; line-height:0; cursor:grab;
+  }
+  .wrap.collapsed .collapse:hover { filter:brightness(1.1); }
+  .wrap.collapsed .collapse:focus-visible { outline:2px solid var(--section, var(--accent)); outline-offset:2px; }
   .thread { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; margin-right:14px; padding:9px 0 8px 12px; overflow:auto; scrollbar-width:thin; }
   .thread[hidden],.note[hidden],.copy[hidden] { display:none!important; }
-  .msg-user { align-self:flex-end; max-width:86%; padding:6px 10px; border-radius:10px; background:var(--accent-soft); color:var(--ink); font:12px/1.55 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; white-space:pre-wrap; overflow-wrap:anywhere; }
-  .msg-assistant { align-self:stretch; color:var(--ink); font:12.5px/1.7 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; overflow-wrap:anywhere; }
-  .msg-assistant[data-kind] { white-space:pre-wrap; font:11px/1.6 var(--mono); }
+  .msg-user { align-self:flex-end; max-width:86%; padding:6px 10px; border-radius:10px; background:color-mix(in srgb, var(--section, var(--accent)) 12%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--section, var(--accent)) 28%, transparent); color:var(--ink); font:12px/1.55 var(--sans); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .msg-assistant { align-self:stretch; color:var(--ink); font:12.5px/1.7 var(--sans); overflow-wrap:anywhere; }
+  .msg-assistant[data-kind] { white-space:pre-wrap; font:11.5px/1.6 var(--sans); }
   .msg-assistant[data-kind="pending"] { color:var(--muted); }
   .msg-assistant[data-kind="error"] { color:var(--danger); font-size:10.5px; }
   .msg-assistant.markdown h1,.msg-assistant.markdown h2,.msg-assistant.markdown h3,
   .msg-assistant.markdown h4,.msg-assistant.markdown h5,.msg-assistant.markdown h6 {
-    font:600 13px/1.45 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+    font:600 13px/1.45 var(--sans);
   }
   .msg-assistant.markdown p,.msg-assistant.markdown li,
   .msg-assistant.markdown blockquote {
-    font:12.5px/1.7 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+    font:12.5px/1.7 var(--sans);
   }
   .msg-assistant.markdown code { font:10.5px/1.6 var(--mono); }
+  .msg-assistant.markdown { cursor:grab; }
+  .msg-assistant.markdown a,.msg-assistant.markdown summary { cursor:pointer; }
+  .wrap.moving,.wrap.moving * { user-select:none!important; }
   .thought { align-self:stretch; margin-bottom:4px; }
-  .thought summary { display:flex; align-items:center; gap:5px; padding:0; color:var(--muted); font:10px/1.6 var(--mono); cursor:pointer; list-style:none; }
+  .thought summary { display:flex; align-items:center; gap:5px; padding:0; color:var(--muted); font:10.5px/1.6 var(--sans); cursor:pointer; list-style:none; }
   .thought summary::-webkit-details-marker { display:none; }
   .thought summary::before { content:"\\25B8"; color:var(--faint); font-size:9px; transition:transform .15s; }
   .thought[open] summary::before { transform:rotate(90deg); }
-  .thought-body { margin:3px 0 2px; padding-left:10px; border-left:2px solid var(--line); max-height:170px; overflow:auto; color:var(--muted); font:11.5px/1.65 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; overflow-wrap:anywhere; scrollbar-width:thin; }
+  .thought-body { margin:3px 0 2px; padding-left:10px; border-left:2px solid var(--line); max-height:170px; overflow:auto; color:var(--muted); font:11.5px/1.65 var(--sans); overflow-wrap:anywhere; scrollbar-width:thin; }
   .thought-body.markdown p,.thought-body.markdown li { font:inherit; }
   /* Three grips mark how the window scales: the right edge stretches width, the bottom edge height,
      and the corner both at once. Arrows say which way each grip moves, so the edge grips do not read
@@ -172,23 +187,23 @@ const CHAT_CSS = `
   .grip-corner::before { right:4px; bottom:4px; width:13px; height:13px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); border-radius:0; background:none; }
   .grip-corner:hover::before,.grip-corner:focus-visible::before { border-color:var(--accent); background:none; }
   .wrap.collapsed .grip { display:none; }
-  .note { margin:0; padding:0 12px 6px; color:var(--faint); font:9px/1.5 var(--mono); }
+  .note { margin:0; padding:0 12px 6px; color:var(--faint); font:9.5px/1.5 var(--sans); }
   .form { display:flex; align-items:flex-end; gap:6px; margin:0 10px; padding:5px 5px 5px 9px; border:1px solid var(--line); border-radius:10px; background:var(--sunken); transition:border-color .15s,box-shadow .15s; }
-  .form:focus-within { border-color:var(--accent-line); box-shadow:0 0 0 2px var(--accent-soft); }
-  .input { flex:1; min-width:0; min-height:28px; max-height:110px; padding:3px 0; border:0; background:transparent; color:var(--ink); font:12px/1.5 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; resize:none; overflow-y:auto; scrollbar-width:thin; }
+  .form:focus-within { border-color:color-mix(in srgb, var(--section, var(--accent)) 55%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--section, var(--accent)) 14%, transparent); }
+  .input { flex:1; min-width:0; min-height:28px; max-height:110px; padding:3px 0; border:0; background:transparent; color:var(--ink); font:12px/1.5 var(--sans); resize:none; overflow-y:auto; scrollbar-width:thin; }
   .input::placeholder { color:var(--faint); }
   .input:focus-visible { outline:none; }
-  .send { flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:var(--accent); color:var(--on-accent); font:13px/1 var(--mono); transition:background .15s,color .15s; }
-  .send:hover:not(:disabled) { background:var(--accent-hover); }
+  .send { flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:var(--section, var(--accent)); color:var(--on-accent); font:13px/1 var(--mono); transition:background .15s,color .15s; }
+  .send:hover:not(:disabled) { filter:brightness(1.1); }
   .send:disabled { background:var(--sunken); color:var(--faint); cursor:default; }
   .foot { display:flex; align-items:center; gap:4px; padding:5px 28px 9px 10px; }
   .seg { display:inline-flex; gap:0; }
-  .seg button { padding:2px 6px; border-radius:5px; color:var(--faint); font:9px/1.5 var(--mono); white-space:nowrap; transition:background .15s,color .15s; }
+  .seg button { padding:2px 6px; border-radius:5px; color:var(--faint); font:9.5px/1.5 var(--sans); white-space:nowrap; transition:background .15s,color .15s; }
   .seg button:hover:not(:disabled) { color:var(--ink); }
   .seg button[aria-pressed="true"] { background:var(--sunken); color:var(--ink); }
   .seg button:disabled { opacity:.5; cursor:default; }
   .usage { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--faint); font:9px/1.5 var(--mono); text-align:right; }
-  .copy { flex:none; padding:2px 5px; border-radius:5px; color:var(--muted); font:9px/1.5 var(--mono); transition:background .15s,color .15s; }
+  .copy { flex:none; padding:2px 5px; border-radius:5px; color:var(--muted); font:9.5px/1.5 var(--sans); transition:background .15s,color .15s; }
   .copy:hover { background:var(--sunken); color:var(--ink); }
   @media (max-width:640px) { .head { padding:6px 5px 6px 8px; } .thread { padding:8px 0 2px 10px; } .form { margin:0 8px; } .foot { padding:4px 26px 8px 8px; } }
   ${MARKDOWN_CSS}
@@ -199,18 +214,18 @@ const ASK_CSS = `
   :host { all:initial; }
   * { box-sizing:border-box; }
   button {
-    display:flex; align-items:center; gap:6px; padding:4px 7px 4px 8px;
-    border:1px solid light-dark(rgba(132,159,93,.5),rgba(154,184,110,.55)); border-radius:3px;
-    background:light-dark(#ffffff,#000000); color:light-dark(#0a0a0a,#f5f5f5);
-    box-shadow:0 8px 24px light-dark(rgba(17,24,39,.14),rgba(0,0,0,.5)); cursor:pointer;
+    display:flex; align-items:center; gap:7px; padding:7px 13px 7px 11px;
+    border:1px solid light-dark(rgba(132,159,93,.34),rgba(154,184,110,.36)); border-radius:8px;
+    background:light-dark(#f7f9f2,#171b13); color:light-dark(#2c351c,#e6edda);
+    box-shadow:0 2px 10px light-dark(rgba(17,24,39,.12),rgba(0,0,0,.4)); cursor:pointer;
     color-scheme:light dark;
-    font:500 9.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap;
-    transition:background .12s,border-color .12s;
+    font:500 12.5px/1.35 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; white-space:nowrap;
+    transition:background .12s,border-color .12s,box-shadow .12s;
   }
-  button:hover { background:light-dark(#fafafa,#111111); border-color:light-dark(#849f5d,#adcb80); }
+  button:hover { background:light-dark(#eef3e4,#1d2316); border-color:light-dark(#849f5d,#adcb80); box-shadow:0 3px 12px light-dark(rgba(17,24,39,.14),rgba(0,0,0,.45)); }
   button:focus-visible { outline:2px solid light-dark(#849f5d,#9ab86e); outline-offset:2px; }
-  .spark { color:light-dark(#849f5d,#9ab86e); font-size:11px; line-height:1; }
-  .key { padding:2px 4px; border:1px solid light-dark(#e5e5e5,#262626); border-radius:3px; color:light-dark(#737373,#a3a3a3); font:600 9px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.04em; text-transform:none; }
+  .bubble { flex:none; width:15px; height:15px; color:light-dark(#6f8a4b,#adcb80); }
+  .key { margin-left:3px; padding-left:9px; border-left:1px solid light-dark(rgba(132,159,93,.24),rgba(154,184,110,.26)); color:light-dark(#8a907c,#8d9585); font:500 10.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; }
   :host([data-theme="light"]) button { color-scheme:light; }
   :host([data-theme="dark"]) button { color-scheme:dark; }
 `;
@@ -232,6 +247,10 @@ const HIGHLIGHT_COLORS: HighlightColor[] = [
   { id: 'rose', label: 'Rose', dot: '#d9689b', fill: 'rgba(217,104,155,.16)', media: 'rgba(217,104,155,.10)', line: 'rgba(217,104,155,.8)' },
   { id: 'violet', label: 'Violet', dot: '#9a7bd1', fill: 'rgba(154,123,209,.16)', media: 'rgba(154,123,209,.10)', line: 'rgba(154,123,209,.8)' },
   { id: 'teal', label: 'Teal', dot: '#3fae9c', fill: 'rgba(63,174,156,.16)', media: 'rgba(63,174,156,.10)', line: 'rgba(63,174,156,.8)' },
+  { id: 'indigo', label: 'Indigo', dot: '#5f6fd6', fill: 'rgba(95,111,214,.16)', media: 'rgba(95,111,214,.10)', line: 'rgba(95,111,214,.8)' },
+  { id: 'lime', label: 'Lime', dot: '#8cb43a', fill: 'rgba(140,180,58,.16)', media: 'rgba(140,180,58,.10)', line: 'rgba(140,180,58,.8)' },
+  { id: 'coral', label: 'Coral', dot: '#e07352', fill: 'rgba(224,115,82,.16)', media: 'rgba(224,115,82,.10)', line: 'rgba(224,115,82,.8)' },
+  { id: 'plum', label: 'Plum', dot: '#b2599f', fill: 'rgba(178,89,159,.16)', media: 'rgba(178,89,159,.10)', line: 'rgba(178,89,159,.8)' },
 ];
 
 const CHAT_WIDTH = 380;
@@ -240,7 +259,7 @@ const CHAT_MIN_WIDTH = 280;
 const CHAT_MIN_HEIGHT = 200;
 const CHAT_MAX_WIDTH = 760;
 const CHAT_MAX_HEIGHT = 900;
-const COLLAPSED_WIDTH = 200;
+const COLLAPSED_WIDTH = 20;
 const CHAT_SIZE_KEY = 'fg:chatSize:v1';
 
 function highlightColor(value: unknown): HighlightColor | null {
@@ -285,6 +304,8 @@ interface StoredChat {
   color?: unknown;
   dx?: unknown;
   dy?: unknown;
+  x?: unknown;
+  y?: unknown;
   w?: unknown;
   h?: unknown;
 }
@@ -319,14 +340,18 @@ interface ChatBlock {
   color: HighlightColor;
   colorButton: HTMLButtonElement;
   palette: HTMLDivElement;
-  /** Auto name from the section's heading, shown in the header and the collapsed chip. */
+  /** Starts as "New Chat"; after the first exchange it becomes a short auto title. */
   name: string;
+  nameEl: HTMLSpanElement;
   note: HTMLParagraphElement;
   model: ChatModelSwitch;
   collapsed: boolean;
   /** Where the user dragged the window, relative to its anchored position. */
   offsetX: number;
   offsetY: number;
+  /** Absolute page spot of a bookmark chip, so it returns to exactly where it was dropped. */
+  chipX: number | null;
+  chipY: number | null;
   /** Window size in CSS pixels; kept even while the viewport is too small to draw it whole. */
   width: number;
   height: number;
@@ -378,7 +403,16 @@ function elementFromPath(path: string): Element | null {
 function rangeForQuote(scope: ParentNode, text: string): Range | null {
   const quote = text.replace(/\s+/g, ' ').trim().toLowerCase();
   if (!quote) return null;
-  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+  // Scripts and styles can hold a copy of the article text (hydration data, JSON-LD) with no line
+  // boxes; a range built there would restore a highlight that can never be drawn.
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      const parent = node.parentElement;
+      return parent && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(parent.tagName)
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT;
+    },
+  });
   const characters: string[] = [];
   const positions: { node: Text; offset: number }[] = [];
   let spaced = true;
@@ -401,20 +435,39 @@ function rangeForQuote(scope: ParentNode, text: string): Range | null {
   const joined = characters.join('');
   // Prefer the whole quote so the restored range ends where the section does; a page edited since
   // the chat was saved still restores from a prefix rather than losing the highlight entirely.
-  let needle = quote;
-  let start = joined.indexOf(needle);
-  for (const length of [240, 120, 80]) {
-    if (start >= 0 || length >= quote.length) continue;
-    needle = quote.slice(0, length).trimEnd();
-    start = joined.indexOf(needle);
+  const lengths = [...new Set([quote.length, 240, 120, 80])].filter(
+    (length) => length > 0 && length <= quote.length,
+  );
+  const rangeAt = (start: number, length: number) => {
+    const begin = positions[start];
+    const end = positions[start + length - 1];
+    const range = document.createRange();
+    range.setStart(begin.node, begin.offset);
+    range.setEnd(end.node, Math.min(end.node.textContent?.length ?? 0, end.offset + 1));
+    return range;
+  };
+  const drawable = (range: Range) =>
+    [...range.getClientRects()].some((rect) => rect.width > 1 && rect.height > 1);
+  // Pages often keep a second, hidden copy of their text; a match inside it can never be drawn, so
+  // the first match is only the fallback and a visible one anywhere wins.
+  let fallback: Range | null = null;
+  let attempts = 0;
+  for (const length of lengths) {
+    const needle = quote.slice(0, length).trimEnd();
+    if (!needle) continue;
+    for (
+      let start = joined.indexOf(needle);
+      start >= 0 && attempts < 12;
+      start = joined.indexOf(needle, start + 1)
+    ) {
+      const range = rangeAt(start, needle.length);
+      attempts += 1;
+      if (!fallback) fallback = range;
+      if (drawable(range)) return range;
+    }
+    if (attempts >= 12) break;
   }
-  if (start < 0) return null;
-  const begin = positions[start];
-  const end = positions[start + needle.length - 1];
-  const range = document.createRange();
-  range.setStart(begin.node, begin.offset);
-  range.setEnd(end.node, Math.min(end.node.textContent?.length ?? 0, end.offset + 1));
-  return range;
+  return fallback;
 }
 
 function elementAroundRange(range: Range): Element | null {
@@ -551,8 +604,10 @@ export function createHost(
       --fg-shadow:0 16px 40px light-dark(rgba(17,24,39,.16),rgba(0,0,0,.55));
       --fg-soft-shadow:0 8px 24px light-dark(rgba(17,24,39,.14),rgba(0,0,0,.5));
       --fg-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+      --fg-sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+      --fg-cute:ui-rounded,'SF Pro Rounded','Arial Rounded MT Bold','Nunito','Quicksand',system-ui,sans-serif;
       color-scheme:light dark; position:fixed; pointer-events:none;
-      font:12px/1.5 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; color:var(--fg-body);
+      font:12px/1.5 var(--fg-sans); color:var(--fg-body);
     }
     .companion[data-theme="light"] { color-scheme:light; }
     .companion[data-theme="dark"] { color-scheme:dark; }
@@ -561,7 +616,8 @@ export function createHost(
     .companion[data-hidden="true"] .fg-character,
     .companion[data-hidden="true"] .grip,
     .companion[data-hidden="true"] .controls,
-    .companion[data-hidden="true"] .fg-panel { display:none!important; }
+    .companion[data-hidden="true"] .fg-panel,
+    .companion[data-hidden="true"] .say { display:none!important; }
     button { font:inherit; color:inherit; cursor:pointer; border:0; }
     button:focus-visible { outline:2px solid var(--fg-accent); outline-offset:2px; }
     .grip { position:absolute; inset:0; width:100%; height:100%; background:transparent; pointer-events:auto; cursor:grab; touch-action:none; border-radius:12px; }
@@ -569,23 +625,75 @@ export function createHost(
     .fg-emote { background:var(--fg-glass); color:var(--fg-ink); box-shadow:0 2px 8px rgba(0,0,0,.13); }
     .controls { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); display:flex; gap:2px; padding:3px; border:1px solid var(--fg-line); border-radius:8px; background:var(--fg-glass); box-shadow:var(--fg-soft-shadow); backdrop-filter:blur(8px); opacity:0; pointer-events:none; }
     .companion:hover .controls,.companion:focus-within .controls,.companion.panel-open .controls { opacity:1; pointer-events:auto; }
-    .controls button { display:flex; align-items:center; gap:5px; padding:5px 8px; border-radius:3px; color:var(--fg-body); white-space:nowrap; font:500 9.5px/1.5 var(--fg-mono); letter-spacing:.1em; text-transform:uppercase; transition:background .15s,color .15s; }
+    .controls button { display:flex; align-items:center; gap:5px; padding:5px 8px; border-radius:3px; color:var(--fg-body); white-space:nowrap; font:600 10px/1.5 var(--fg-sans); letter-spacing:.06em; text-transform:uppercase; transition:background .15s,color .15s; }
     .controls button:hover,.controls button:focus-visible { background:var(--fg-sunken); color:var(--fg-ink); }
     .controls button[hidden],.fg-panel[hidden],.mini[hidden],.ask-highlight span[hidden] { display:none!important; }
     .fg-panel { position:absolute; right:calc(100% + 10px); bottom:0; width:280px; max-height:min(62vh,460px); overflow:auto; border:1px solid var(--fg-line); border-radius:6px; background:var(--fg-bg); box-shadow:var(--fg-shadow); pointer-events:auto; scrollbar-width:thin; }
     .companion.flip .fg-panel { right:auto; left:calc(100% + 10px); }
     .companion.below .fg-panel { top:calc(100% + 8px); bottom:auto; }
+    /* Her reading chat is one speech bubble over her head, never a chat window. Clicking her opens
+       an obvious little field; once she answers, the field gives way to her sentence for a few
+       seconds before the bubble leaves, so a reply is spoken once and not replayed later. */
+    .say {
+      position:absolute; bottom:calc(100% + 10px); left:50%;
+      transform:translateX(calc(-50% + var(--say-shift, 0px)));
+      width:max-content; max-width:min(260px, calc(100vw - 20px));
+      pointer-events:auto; transition:opacity .2s ease;
+    }
+    .say[hidden] { display:none!important; }
+    .say[data-leaving="true"] { opacity:0; pointer-events:none; }
+    .say[data-mode="reply"] {
+      display:flex; align-items:center; padding:6px 10px;
+      border:1px solid var(--fg-accent-line); border-radius:14px;
+      background:var(--fg-bg); box-shadow:var(--fg-soft-shadow);
+    }
+    .say[data-mode="reply"]::after {
+      content:""; position:absolute; bottom:-5px; left:calc(50% - var(--say-shift, 0px));
+      width:9px; height:9px; border-right:1px solid var(--fg-accent-line);
+      border-bottom:1px solid var(--fg-accent-line); border-bottom-right-radius:2px;
+      background:var(--fg-bg); transform:translateX(-50%) rotate(45deg);
+    }
+    .companion.below .say { top:calc(100% + 10px); bottom:auto; }
+    .companion.below .say[data-mode="reply"]::after {
+      top:-5px; bottom:auto; border:0; border-top:1px solid var(--fg-accent-line);
+      border-left:1px solid var(--fg-accent-line); border-radius:0; border-top-left-radius:2px;
+    }
+    .say-reply {
+      display:block; max-width:100%; padding:0; border:0; background:transparent;
+      color:var(--fg-ink); text-align:left;
+      font:500 13px/1.5 var(--fg-cute);
+      white-space:pre-wrap; overflow-wrap:anywhere; cursor:text;
+    }
+    .say-reply[hidden],.say-form[hidden] { display:none!important; }
+    .say-reply[data-kind="pending"] { color:var(--fg-faint); cursor:default; }
+    .say-reply[data-kind="error"] { color:var(--fg-danger); }
+    /* The field reads as a field at a glance: a bordered pill with a pen, and the send circle
+       brightens once there is something to send. */
+    .say-form {
+      display:flex; align-items:center; gap:4px; width:min(232px, calc(100vw - 20px));
+      padding:3px 3px 3px 10px; border:1px solid var(--fg-stone); border-radius:999px;
+      background:var(--fg-bg); box-shadow:var(--fg-soft-shadow);
+      transition:border-color .15s, box-shadow .15s;
+    }
+    .say-form::before { content:"\\270E"; flex:none; color:var(--fg-muted); font:11px/1 var(--fg-sans); }
+    .say-form:focus-within { border-color:var(--fg-accent); box-shadow:0 0 0 3px var(--fg-accent-soft), var(--fg-soft-shadow); }
+    .say-input { flex:1 1 auto; width:0; min-width:0; height:24px; padding:0; border:0; background:transparent; color:var(--fg-ink); font:12px/1.4 var(--fg-sans); }
+    .say-input::placeholder { color:var(--fg-faint); }
+    .say-input:focus-visible { outline:none; }
+    .say-send { flex:none; display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--fg-accent); color:var(--fg-on-accent); font:12px/1 var(--fg-mono); transition:background .15s,color .15s; }
+    .say-send:hover:not(:disabled) { background:var(--fg-accent-hover); }
+    .say-send:disabled { background:var(--fg-sunken); color:var(--fg-faint); cursor:default; }
     .menu-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px 6px; }
-    .menu-title { color:var(--fg-muted); font:500 9.5px/1.4 var(--fg-mono); letter-spacing:.14em; text-transform:uppercase; }
-    .menu-close { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:transparent; color:var(--fg-muted); font:12px/1 var(--fg-mono); transition:background .15s,border-color .15s,color .15s; }
+    .menu-title { color:var(--fg-muted); font:600 10px/1.4 var(--fg-sans); letter-spacing:.12em; text-transform:uppercase; }
+    .menu-close { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:transparent; color:var(--fg-muted); font:13px/1 var(--fg-sans); transition:background .15s,border-color .15s,color .15s; }
     .menu-close:hover,.menu-close:focus-visible { background:var(--fg-sunken); border-color:var(--fg-stone); color:var(--fg-ink); }
     .study-body { padding:0; }
-    .menu-note { margin:0; padding:0 10px 7px; color:var(--fg-muted); font:9px/1.5 var(--fg-mono); }
+    .menu-note { margin:0; padding:0 10px 7px; color:var(--fg-muted); font:9.5px/1.5 var(--fg-sans); }
     .menu-section { border-top:1px solid var(--fg-line); }
-    .menu-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:6px 10px 2px; color:var(--fg-faint); font:500 9px/1.4 var(--fg-mono); letter-spacing:.14em; text-transform:uppercase; }
-    .menu-count { color:var(--fg-muted); font:9.5px/1.4 var(--fg-mono); letter-spacing:.02em; text-transform:none; }
+    .menu-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:6px 10px 2px; color:var(--fg-faint); font:600 9.5px/1.4 var(--fg-sans); letter-spacing:.1em; text-transform:uppercase; }
+    .menu-count { color:var(--fg-muted); font:10px/1.4 var(--fg-sans); letter-spacing:.02em; text-transform:none; }
     .cards { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:1px 10px 8px; }
-    .card { display:flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-muted); font:9.5px/1.4 var(--fg-mono); text-align:left; transition:background .15s,border-color .15s,color .15s; }
+    .card { display:flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-muted); font:10px/1.4 var(--fg-sans); text-align:left; transition:background .15s,border-color .15s,color .15s; }
     .card img { flex:none; width:22px; height:22px; border-radius:2px; object-fit:cover; background:var(--fg-bg); }
     .card:hover,.card:focus-visible { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
     .card[aria-pressed="true"] { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); box-shadow:inset 0 0 0 1px var(--fg-accent-line); }
@@ -602,23 +710,23 @@ export function createHost(
     .switch[aria-checked="true"] { background:var(--fg-accent); border-color:var(--fg-accent); }
     .switch[aria-checked="true"]::after { transform:translateX(13px); }
     .action-row { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:1px 10px 8px; }
-    .action { padding:5px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-body); font:9.5px/1.4 var(--fg-mono); text-align:center; white-space:nowrap; transition:background .15s,border-color .15s,color .15s; }
+    .action { padding:5px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-body); font:10px/1.4 var(--fg-sans); text-align:center; white-space:nowrap; transition:background .15s,border-color .15s,color .15s; }
     .action:hover:not(:disabled),.action:focus-visible { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
     .action[data-active="true"] { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
     .action:disabled { opacity:.4; cursor:default; }
     .seg { display:inline-flex; gap:2px; padding:2px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); }
-    .seg button { padding:3px 8px; border-radius:2px; color:var(--fg-muted); font:9.5px/1.4 var(--fg-mono); white-space:nowrap; transition:background .15s,color .15s; }
+    .seg button { padding:3px 8px; border-radius:2px; color:var(--fg-muted); font:10px/1.4 var(--fg-sans); white-space:nowrap; transition:background .15s,color .15s; }
     .seg button:hover:not(:disabled) { background:var(--fg-bg); color:var(--fg-ink); }
     .seg button[aria-pressed="true"] { background:var(--fg-accent-soft); color:var(--fg-ink); box-shadow:inset 0 0 0 1px var(--fg-accent-line); }
     .seg button:disabled { opacity:.5; cursor:default; }
-    .study-result { max-height:150px; overflow:auto; margin:0; padding:9px 10px; border-top:1px solid var(--fg-line); white-space:pre-wrap; overflow-wrap:anywhere; color:var(--fg-body); font-size:11px; line-height:1.6; scrollbar-width:thin; }
+    .study-result { max-height:150px; overflow:auto; margin:0; padding:9px 10px; border-top:1px solid var(--fg-line); white-space:pre-wrap; overflow-wrap:anywhere; color:var(--fg-body); font-size:11.5px; line-height:1.6; scrollbar-width:thin; }
     .study-result:empty { display:none; }
-    .study-result[data-busy="true"] { color:var(--fg-accent); font:10px/1.5 var(--fg-mono); }
+    .study-result[data-busy="true"] { color:var(--fg-accent); font:10.5px/1.5 var(--fg-sans); }
     .study-result.error { color:var(--fg-danger); }
     .study-foot { display:flex; align-items:center; gap:8px; padding:7px 10px; border-top:1px solid var(--fg-line); }
     .study-foot:not(:has(.usage:not(:empty))) { display:none; }
     .study-foot .usage { flex:1; color:var(--fg-faint); font:9px/1.5 var(--fg-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .mini { flex:none; padding:3px 8px; border:1px solid var(--fg-accent-line); border-radius:3px; background:var(--fg-accent-soft); color:var(--fg-ink); font:9px/1.4 var(--fg-mono); transition:background .15s,border-color .15s; }
+    .mini { flex:none; padding:3px 8px; border:1px solid var(--fg-accent-line); border-radius:3px; background:var(--fg-accent-soft); color:var(--fg-ink); font:9.5px/1.4 var(--fg-sans); transition:background .15s,border-color .15s; }
     .mini:hover,.mini:focus-visible { background:rgba(132,159,93,.16); border-color:var(--fg-accent); }
     .ask-highlight { position:fixed; inset:0; pointer-events:none; }
     .ask-highlight span { position:fixed; border-radius:3px; background:var(--band-fill,rgba(132,159,93,.16)); box-shadow:inset 0 0 0 1px var(--band-line,rgba(132,159,93,.45)); }
@@ -631,8 +739,11 @@ export function createHost(
   const character = createCharacter(initial.character);
   const grip = document.createElement('button');
   grip.className = 'grip';
-  grip.setAttribute('aria-label', 'Move companion. Drag or use arrow keys.');
-  grip.title = 'Drag to move · arrow keys when focused';
+  grip.setAttribute(
+    'aria-label',
+    'Baleen. Click to talk with her about the page; drag or use arrow keys to move.',
+  );
+  grip.title = 'Click to talk · drag to move';
   const controls = document.createElement('div');
   controls.className = 'controls';
   const studyButton = document.createElement('button');
@@ -849,6 +960,32 @@ export function createHost(
   characterBody.append(lookSection, sizeSection, characterSettings, characterNote);
   characterHead.append(characterTitle, characterClose);
   characterPanel.append(characterHead, characterBody);
+  const say = document.createElement('div');
+  say.className = 'say';
+  say.hidden = true;
+  say.setAttribute('role', 'region');
+  say.setAttribute('aria-label', 'Talk with Baleen');
+  const sayReply = document.createElement('button');
+  sayReply.type = 'button';
+  sayReply.className = 'say-reply';
+  sayReply.hidden = true;
+  sayReply.title = 'Click to reply';
+  const talkForm = document.createElement('form');
+  talkForm.className = 'say-form';
+  const talkInput = document.createElement('input');
+  talkInput.type = 'text';
+  talkInput.className = 'say-input';
+  talkInput.placeholder = 'Message Baleen\u2026';
+  talkInput.setAttribute('aria-label', 'Message Baleen');
+  talkInput.autocomplete = 'off';
+  const talkSend = document.createElement('button');
+  talkSend.type = 'submit';
+  talkSend.className = 'say-send';
+  talkSend.textContent = '\u2191';
+  talkSend.setAttribute('aria-label', 'Send message');
+  talkSend.disabled = true;
+  talkForm.append(talkInput, talkSend);
+  say.append(sayReply, talkForm);
   animateSwitch.control.onclick = () => {
     const animate = animateSwitch.control.getAttribute('aria-checked') !== 'true';
     animateSwitch.control.setAttribute('aria-checked', String(animate));
@@ -879,7 +1016,15 @@ export function createHost(
   highlightLayer.className = 'ask-highlight';
   highlightLayer.setAttribute('aria-hidden', 'true');
   const highlightBoxes: HTMLSpanElement[] = [];
-  wrapper.append(highlightLayer, character.element, grip, controls, studyPanel, characterPanel);
+  wrapper.append(
+    highlightLayer,
+    character.element,
+    grip,
+    controls,
+    studyPanel,
+    characterPanel,
+    say,
+  );
   shadow.append(style, wrapper);
   clearStaleHosts();
   document.documentElement.append(element);
@@ -888,11 +1033,23 @@ export function createHost(
     y = 0,
     width = 150,
     height = 300;
-  let drag: { id: number; x: number; y: number; originX: number; originY: number } | null = null;
+  let drag: {
+    id: number;
+    x: number;
+    y: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null = null;
   let studied = '';
   let busy = false;
   let modelChoice: DeepSeekModel = initial.model;
   let blocks: ChatBlock[] = [];
+  let talkMessages: ChatMessage[] = [];
+  let talkBusy = false;
+  let talkToken = 0;
+  let talkMode: 'ask' | 'reply' = 'ask';
+  let sayHideTimer = 0;
   let highlightFrame = 0;
   let repairTimer = 0;
   let lookTimer = 0;
@@ -900,8 +1057,21 @@ export function createHost(
   let toneUntil = 0;
   let restored = false;
   let pageWatcher: MutationObserver | null = null;
-  const storageKey = () =>
-    `fg:chats:v1:${location.origin}${location.pathname}${location.search}`;
+  const placeKey = () => `${location.origin}${location.pathname}${location.search}`;
+  const storageKey = () => `fg:chats:v1:${placeKey()}`;
+  const talkStorageKey = () => `fg:talk:v1:${placeKey()}`;
+  /**
+   * Conversations belong to the site, not the tab: they live in local storage so a reload, a new
+   * tab and a browser restart all bring the windows and their bookmarks back. Returns null when the
+   * page blocks storage, and the callers fall back to session storage.
+   */
+  function chatStore(): Storage | null {
+    try {
+      return window.localStorage;
+    } catch {
+      return null;
+    }
+  }
   /**
    * The page is never read: every look comes from something the user does in her own panel.
    * `hold` returns to idle after that many ms; idle itself settles into the heavier rest sway.
@@ -968,7 +1138,10 @@ export function createHost(
     actions.model(next);
   }
   function syncOpenClass() {
-    wrapper.classList.toggle('panel-open', !studyPanel.hidden || !characterPanel.hidden);
+    wrapper.classList.toggle(
+      'panel-open',
+      !studyPanel.hidden || !characterPanel.hidden || !say.hidden,
+    );
   }
   function closeStudy() {
     studyPanel.hidden = true;
@@ -979,6 +1152,13 @@ export function createHost(
     characterPanel.hidden = true;
     characterButton.setAttribute('aria-expanded', 'false');
     syncOpenClass();
+  }
+  function closeTalk() {
+    stopSayHide();
+    if (say.hidden) return;
+    say.hidden = true;
+    syncOpenClass();
+    settleLook();
   }
   function fitPanel() {
     const narrow = innerWidth <= 820;
@@ -991,6 +1171,21 @@ export function createHost(
     const heightLimit = narrow ? '60vh' : `${Math.max(180, Math.min(460, room))}px`;
     studyPanel.style.maxHeight = heightLimit;
     characterPanel.style.maxHeight = heightLimit;
+    placeTalk();
+  }
+  /** Keep her whole speech bubble on screen; the tail follows the shift to stay on her head. */
+  function placeTalk() {
+    if (say.hidden) return;
+    say.style.setProperty('--say-shift', '0px');
+    const pill = say.getBoundingClientRect();
+    const room = 8;
+    const shift =
+      pill.left < room
+        ? room - pill.left
+        : pill.right > innerWidth - room
+          ? innerWidth - room - pill.right
+          : 0;
+    say.style.setProperty('--say-shift', `${Math.round(shift)}px`);
   }
   function studySourceFor(): { text: string; label: string } | null {
     const text = pagePassage();
@@ -1002,7 +1197,9 @@ export function createHost(
     const source = studySourceFor();
     studySource.textContent = source ? source.label : 'This page has no readable text.';
     for (const button of studyActions) button.disabled = busy || !source;
-    const asked = blocks.some((block) => block.messages.some((message) => message.role === 'user'));
+    const asked =
+      blocks.some((block) => block.messages.some((message) => message.role === 'user')) ||
+      talkMessages.some((message) => message.role === 'user');
     exportChats.disabled = !asked;
     exportChats.title = asked ? 'Download this session as Markdown' : 'No questions yet';
     closeChats.disabled = !blocks.length;
@@ -1072,6 +1269,7 @@ export function createHost(
   }
   function openStudy() {
     closeCharacter();
+    closeTalk();
     studyPanel.hidden = false;
     studyButton.setAttribute('aria-expanded', 'true');
     syncOpenClass();
@@ -1084,6 +1282,7 @@ export function createHost(
   }
   function openCharacter() {
     closeStudy();
+    closeTalk();
     characterPanel.hidden = false;
     characterButton.setAttribute('aria-expanded', 'true');
     syncOpenClass();
@@ -1094,6 +1293,173 @@ export function createHost(
     if (characterPanel.hidden) openCharacter();
     else closeCharacter();
   }
+  function lastReply(): ChatMessage | undefined {
+    for (let index = talkMessages.length - 1; index >= 0; index -= 1)
+      if (talkMessages[index].role === 'assistant') return talkMessages[index];
+    return undefined;
+  }
+  /** One pill: the input before she speaks, her sentence after; history stays out of sight. */
+  function renderTalk() {
+    const reply = talkMode === 'reply' ? lastReply() : undefined;
+    say.dataset.mode = reply ? 'reply' : 'ask';
+    talkForm.hidden = !!reply;
+    sayReply.hidden = !reply;
+    if (reply) {
+      sayReply.textContent = reply.text;
+      if (reply.kind) sayReply.dataset.kind = reply.kind;
+      else delete sayReply.dataset.kind;
+      sayReply.disabled = reply.kind === 'pending';
+      sayReply.title = reply.kind === 'pending' ? 'Thinking\u2026' : 'Click to reply';
+    }
+    talkSend.disabled = talkBusy || !talkInput.value.trim();
+    placeTalk();
+  }
+  /** Her answer is spoken once: after a few seconds the bubble fades and leaves. */
+  function stopSayHide() {
+    window.clearTimeout(sayHideTimer);
+    sayHideTimer = 0;
+    delete say.dataset.leaving;
+  }
+  function hideSayAfterAnswer() {
+    stopSayHide();
+    sayHideTimer = window.setTimeout(() => {
+      if (say.hidden || talkMode !== 'reply') return;
+      say.dataset.leaving = 'true';
+      sayHideTimer = window.setTimeout(() => {
+        sayHideTimer = 0;
+        closeTalk();
+      }, 220);
+    }, 6000);
+  }
+  function readTalk(): ChatMessage[] {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(talkStorageKey()) ?? '[]') as unknown;
+      if (!Array.isArray(raw)) return [];
+      const messages: ChatMessage[] = [];
+      for (const value of raw) {
+        if (!value || typeof value !== 'object') continue;
+        const item = value as ChatMessage;
+        if ((item.role !== 'user' && item.role !== 'assistant') || typeof item.text !== 'string')
+          continue;
+        const text = item.text.trim();
+        if (!text || item.kind === 'pending') continue;
+        messages.push({
+          role: item.role,
+          text: text.slice(0, 8000),
+          ...(item.kind === 'error' ? { kind: 'error' as const } : {}),
+        });
+      }
+      return messages.slice(-24);
+    } catch {
+      return [];
+    }
+  }
+  function saveTalk() {
+    try {
+      if (talkMessages.length)
+        sessionStorage.setItem(talkStorageKey(), JSON.stringify(talkMessages.slice(-24)));
+      else sessionStorage.removeItem(talkStorageKey());
+    } catch {
+      /* Session storage can be unavailable or full; the chat still works in memory. */
+    }
+  }
+  function openTalk() {
+    closeStudy();
+    closeCharacter();
+    say.hidden = false;
+    stopSayHide();
+    // Her last sentence was said once; clicking her opens the field, never a replay of it.
+    talkMode = talkBusy ? 'reply' : 'ask';
+    syncOpenClass();
+    fitPanel();
+    renderTalk();
+    if (talkMode === 'ask') talkInput.focus({ preventScroll: true });
+    look('listen');
+  }
+  function toggleTalk() {
+    if (say.hidden) openTalk();
+    else closeTalk();
+  }
+  async function sendTalk() {
+    if (talkBusy) return;
+    const prompt = talkInput.value.trim();
+    if (!prompt) return;
+    const text = pagePassage().trim().slice(0, 6000);
+    if (!text) {
+      talkMessages.push({
+        role: 'assistant',
+        text: 'This page has no readable text to talk about.',
+        kind: 'error',
+      });
+      talkMode = 'reply';
+      renderTalk();
+      saveTalk();
+      hideSayAfterAnswer();
+      return;
+    }
+    const history: ChatTurn[] = talkMessages
+      .filter((message) => !message.kind)
+      .slice(-6)
+      .map((message) => ({ role: message.role, content: message.text.slice(0, 600) }));
+    talkBusy = true;
+    const token = ++talkToken;
+    talkInput.value = '';
+    talkMessages.push({ role: 'user', text: prompt });
+    talkMessages.push({ role: 'assistant', text: '\u2026', kind: 'pending' });
+    talkMode = 'reply';
+    renderTalk();
+    saveTalk();
+    look('thinking');
+    try {
+      const answer = await requestAsk({
+        action: 'talk',
+        model: modelChoice,
+        text,
+        title: document.title,
+        prompt,
+        history,
+        thinking: false,
+      });
+      if (token !== talkToken) return;
+      talkMessages[talkMessages.length - 1] = { role: 'assistant', text: answer.text };
+      deliver('happy');
+    } catch (error) {
+      if (token !== talkToken) return;
+      talkMessages[talkMessages.length - 1] = {
+        role: 'assistant',
+        text: error instanceof Error ? error.message : 'DeepSeek did not answer.',
+        kind: 'error',
+      };
+      deliver('sad');
+    } finally {
+      if (token === talkToken) {
+        talkBusy = false;
+        renderTalk();
+        saveTalk();
+        hideSayAfterAnswer();
+      }
+    }
+  }
+  sayReply.addEventListener('click', () => {
+    if (talkBusy) return;
+    stopSayHide();
+    talkMode = 'ask';
+    renderTalk();
+    talkInput.focus({ preventScroll: true });
+    look('listen');
+  });
+  talkForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void sendTalk();
+  });
+  talkInput.addEventListener('input', () => {
+    talkSend.disabled = talkBusy || !talkInput.value.trim();
+  });
+  talkInput.addEventListener('focus', () => {
+    if (!talkBusy && Date.now() >= toneUntil) look('listen');
+  });
+  talkInput.addEventListener('blur', settleLook);
+  say.addEventListener('keydown', (event) => event.stopPropagation());
   function sameBox(a: DOMRect, b: DOMRect) {
     return (
       Math.abs(a.left - b.left) < 2 &&
@@ -1220,6 +1586,7 @@ export function createHost(
     else paintHighlights();
   }
   function chatKey(anchor: ChatAnchor): string {
+    // One conversation per section: walking a few paragraphs on should not start another chat.
     return `${anchor.page ?? ''}|${anchor.text.replace(/\s+/g, ' ').trim().slice(0, 200)}|${anchor.images.join('|')}`;
   }
   function anchorFromCapture(capture: SectionCapture): ChatAnchor | null {
@@ -1278,6 +1645,18 @@ export function createHost(
   function placeBlock(block: ChatBlock) {
     const width = blockWidth(block);
     applyBlockWidth(block);
+    // A bookmark that was dragged keeps the exact page spot it was dropped in, so it stays put
+    // through a reload even when the section moved.
+    if (block.collapsed && block.chipX != null && block.chipY != null) {
+      const maxLeft = Math.max(4, document.documentElement.scrollWidth - width - 4);
+      block.host.style.setProperty(
+        'left',
+        `${Math.round(Math.max(4, Math.min(block.chipX, maxLeft)))}px`,
+        'important',
+      );
+      block.host.style.setProperty('top', `${Math.round(Math.max(4, block.chipY))}px`, 'important');
+      return;
+    }
     let rect: {
       left: number;
       top: number;
@@ -1350,25 +1729,30 @@ export function createHost(
       document.documentElement.append(block.host);
     placeBlock(block);
   }
+  /** A quote is only worth keeping while its text is still in the page and can actually be drawn. */
+  function rangeAlive(range: Range | null): range is Range {
+    if (!range || range.collapsed) return false;
+    if (!range.startContainer.isConnected || !range.endContainer.isConnected) return false;
+    if (!range.toString().trim()) return false;
+    return [...range.getClientRects()].some((rect) => rect.width > 1 && rect.height > 1);
+  }
+  function elementDraws(element: Element | null): boolean {
+    if (!element?.isConnected) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  }
   function reanchor(block: ChatBlock) {
     const anchor = block.anchor;
-    // A DOM rebuild (the PDF reader's zoom) re-homes a range's endpoints instead of detaching
-    // them, so a connected but collapsed or empty range no longer covers the quoted text.
-    const live = anchor.range;
-    if (
-      live &&
-      !live.collapsed &&
-      live.toString().trim() &&
-      live.startContainer.isConnected &&
-      live.endContainer.isConnected
-    )
-      return;
+    // A DOM rebuild (the PDF reader's zoom, a hydrated page) re-homes a range's endpoints instead
+    // of detaching them, so a connected but collapsed, empty or undrawable range no longer covers
+    // the quoted text.
+    if (rangeAlive(anchor.range)) return;
     anchor.range = null;
     if (!anchor.text) return;
     const scope =
       (anchor.page != null
         ? document.querySelector<HTMLElement>(`.page[data-page="${anchor.page}"]`)
-        : anchor.element?.isConnected
+        : elementDraws(anchor.element)
           ? anchor.element
           : null) ??
       document.querySelector<HTMLElement>('main, article, [role="main"]') ??
@@ -1382,6 +1766,27 @@ export function createHost(
       if (broad && (!anchor.range || broad.toString().length > anchor.range.toString().length))
         anchor.range = broad;
     }
+    // A hidden or detached copy of the text (an unopened tab, a collapsed drawer) is no better than
+    // no range: leaving it empty lets the repair retries pick the text up once it is drawn.
+    if (!rangeAlive(anchor.range)) anchor.range = null;
+    if (anchor.page == null && anchor.range && !elementDraws(anchor.element))
+      anchor.element = elementAroundRange(anchor.range);
+  }
+  /** Whether a restored block is still waiting for its text to exist or be redrawn. */
+  function blocksNeedRepair(): boolean {
+    return blocks.some((block) => {
+      if (block.closed || !block.anchor.text) return false;
+      const range = block.anchor.range;
+      return (
+        !range ||
+        range.collapsed ||
+        !range.startContainer.isConnected ||
+        !range.endContainer.isConnected
+      );
+    });
+  }
+  function repairSettled() {
+    if (blocksNeedRepair()) scheduleRepair();
   }
   function thoughtBlock(message: ChatMessage): HTMLDetailsElement {
     const details = document.createElement('details');
@@ -1406,6 +1811,7 @@ export function createHost(
         line.classList.add('markdown');
         if (message.reasoning) line.append(thoughtBlock(message));
         line.append(renderMarkdown(message.text));
+        bindBlockDrag(block, line, true);
       } else {
         line.textContent = message.text;
       }
@@ -1437,7 +1843,10 @@ export function createHost(
   /** New conversations start at the size the last one was left at, so sizing sticks. */
   function readChatSize(): { width: number; height: number } | null {
     try {
-      const raw = JSON.parse(sessionStorage.getItem(CHAT_SIZE_KEY) ?? 'null') as {
+      const store = chatStore();
+      const raw = JSON.parse(
+        store?.getItem(CHAT_SIZE_KEY) ?? sessionStorage.getItem(CHAT_SIZE_KEY) ?? 'null',
+      ) as {
         w?: unknown;
         h?: unknown;
       } | null;
@@ -1453,9 +1862,9 @@ export function createHost(
   }
   function rememberChatSize(width: number, height: number) {
     try {
-      sessionStorage.setItem(CHAT_SIZE_KEY, JSON.stringify({ w: width, h: height }));
+      (chatStore() ?? sessionStorage).setItem(CHAT_SIZE_KEY, JSON.stringify({ w: width, h: height }));
     } catch {
-      /* Session storage can be unavailable; the window still works without it. */
+      /* Storage can be unavailable; the window still works without it. */
     }
   }
   /** The window always has a height of its own, and the thread takes the remaining room and scrolls. */
@@ -1536,6 +1945,97 @@ export function createHost(
       saveChats();
     });
   }
+  /**
+   * The header and each rendered answer are drag handles: grabbing either moves the window, and
+   * the offset is kept through scrolls and reloads. Links, buttons and other controls inside an
+   * answer keep their own behavior.
+   */
+  function bindBlockDrag(block: ChatBlock, handle: HTMLElement, fromAnswer = false) {
+    let dragging = false;
+    let armed = false;
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      // The bookmark is itself a button, so it is allowed through the control filter below.
+      const chip = block.collapsed;
+      if (
+        !chip &&
+        (event.target as Element | null)?.closest(
+          'a, button, input, textarea, select, summary, [contenteditable="true"]',
+        )
+      )
+        return;
+      // An answer and a bookmark both wait for real movement, so a click still places the caret,
+      // selects a word or opens the chat; the open header takes the press straight away.
+      dragging = !fromAnswer && !chip;
+      armed = true;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startLeft = parseFloat(block.host.style.left) || 0;
+      const startTop = parseFloat(block.host.style.top) || 0;
+      const baseLeft = startLeft - block.offsetX;
+      const baseTop = startTop - block.offsetY;
+      if (!fromAnswer && !chip) event.preventDefault();
+      const move = (moveEvent: PointerEvent) => {
+        if (!armed || moveEvent.pointerId !== event.pointerId) return;
+        if (!dragging) {
+          if (Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) <= 4) return;
+          dragging = true;
+          block.wrap.classList.add('moving');
+          document.getSelection()?.removeAllRanges();
+        }
+        moveEvent.preventDefault();
+        const box = block.host.getBoundingClientRect();
+        const maxLeft = Math.max(scrollX + 4, scrollX + innerWidth - box.width - 4);
+        const left = Math.max(
+          scrollX + 4,
+          Math.min(startLeft + moveEvent.clientX - startX, maxLeft),
+        );
+        const top = Math.max(4, startTop + moveEvent.clientY - startY);
+        block.offsetX = left - baseLeft;
+        block.offsetY = top - baseTop;
+        if (block.collapsed) {
+          block.chipX = left;
+          block.chipY = top;
+        }
+        block.host.style.setProperty('left', `${Math.round(left)}px`, 'important');
+        block.host.style.setProperty('top', `${Math.round(top)}px`, 'important');
+      };
+      const end = (endEvent: PointerEvent) => {
+        if (endEvent.pointerId !== event.pointerId || !armed) return;
+        armed = false;
+        window.removeEventListener('pointermove', move, true);
+        window.removeEventListener('pointerup', end, true);
+        window.removeEventListener('pointercancel', end, true);
+        if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+        block.wrap.classList.remove('moving');
+        if (dragging) {
+          // The bookmark is also the expand button, so a drag must not fire its click as well.
+          if (block.collapsed) {
+            const swallow = (clickEvent: Event) => {
+              clickEvent.preventDefault();
+              clickEvent.stopPropagation();
+            };
+            handle.addEventListener('click', swallow, { capture: true });
+            window.setTimeout(() => handle.removeEventListener('click', swallow, true), 0);
+          }
+          saveChats();
+        }
+        dragging = false;
+      };
+      window.addEventListener('pointermove', move, true);
+      window.addEventListener('pointerup', end, true);
+      window.addEventListener('pointercancel', end, true);
+      // The bookmark is a button: capturing the pointer would retarget its click away from the
+      // expand handler, so its drag relies on the window listeners alone.
+      if (!fromAnswer && !chip) {
+        try {
+          handle.setPointerCapture(event.pointerId);
+        } catch {
+          /* Synthetic pointers cannot be captured; the window listeners still track the drag. */
+        }
+      }
+    });
+  }
   function createChatBlock(
     anchor: ChatAnchor,
     messages: ChatMessage[] = [],
@@ -1553,7 +2053,7 @@ export function createHost(
     const head = make('div', 'head');
     const titles = make('div', 'titles');
     const storedName = stored && typeof stored.name === 'string' ? shortenName(stored.name, 64) : '';
-    const name = storedName || sectionName(anchor);
+    const name = storedName || 'New Chat';
     const nameEl = make('span', 'name');
     nameEl.textContent = name;
     nameEl.title = name;
@@ -1674,6 +2174,7 @@ export function createHost(
       colorButton,
       palette,
       name,
+      nameEl,
       note,
       model,
       collapsed: false,
@@ -1685,6 +2186,8 @@ export function createHost(
         stored && typeof stored.dy === 'number' && Number.isFinite(stored.dy)
           ? Math.max(-20000, Math.min(20000, stored.dy))
           : 0,
+      chipX: null,
+      chipY: null,
       width:
         stored && typeof stored.w === 'number' && Number.isFinite(stored.w)
           ? clampSize(stored.w, CHAT_MIN_WIDTH, CHAT_MAX_WIDTH)
@@ -1717,49 +2220,7 @@ export function createHost(
     };
     // The header is the drag handle: the window still anchors to its section unless moved, and the
     // offset is kept so a dragged window stays where it was put through scrolls and reloads.
-    let dragging = false;
-    head.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0) return;
-      if ((event.target as Element | null)?.closest('button')) return;
-      event.preventDefault();
-      dragging = true;
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startLeft = parseFloat(host.style.left) || 0;
-      const startTop = parseFloat(host.style.top) || 0;
-      const baseLeft = startLeft - block.offsetX;
-      const baseTop = startTop - block.offsetY;
-      try {
-        head.setPointerCapture(event.pointerId);
-      } catch {
-        /* Synthetic pointers cannot be captured; the header listeners still track the drag. */
-      }
-      const move = (moveEvent: PointerEvent) => {
-        if (!dragging || moveEvent.pointerId !== event.pointerId) return;
-        const box = host.getBoundingClientRect();
-        const maxLeft = Math.max(scrollX + 4, scrollX + innerWidth - box.width - 4);
-        const left = Math.max(
-          scrollX + 4,
-          Math.min(startLeft + moveEvent.clientX - startX, maxLeft),
-        );
-        const top = Math.max(4, startTop + moveEvent.clientY - startY);
-        block.offsetX = left - baseLeft;
-        block.offsetY = top - baseTop;
-        host.style.setProperty('left', `${Math.round(left)}px`, 'important');
-        host.style.setProperty('top', `${Math.round(top)}px`, 'important');
-      };
-      const end = (endEvent: PointerEvent) => {
-        if (endEvent.pointerId !== event.pointerId) return;
-        dragging = false;
-        head.removeEventListener('pointermove', move);
-        head.removeEventListener('pointerup', end);
-        head.removeEventListener('pointercancel', end);
-        if (head.hasPointerCapture(event.pointerId)) head.releasePointerCapture(event.pointerId);
-        saveChats();      };
-      head.addEventListener('pointermove', move);
-      head.addEventListener('pointerup', end);
-      head.addEventListener('pointercancel', end);
-    });
+    bindBlockDrag(block, head);
     for (const grip of grips) bindGrip(block, grip.element, grip.axis);
     close.onclick = () => closeBlock(block);
     copy.onclick = () => {
@@ -1799,7 +2260,11 @@ export function createHost(
     host.addEventListener('keydown', (event) => event.stopPropagation());
     syncBlock(block);
     resizeChatInput(block);
-    if (stored?.collapsed === true) setCollapsed(block, true, false);
+    if (stored?.collapsed === true) {
+      if (typeof stored.x === 'number' && Number.isFinite(stored.x)) block.chipX = stored.x;
+      if (typeof stored.y === 'number' && Number.isFinite(stored.y)) block.chipY = stored.y;
+      setCollapsed(block, true, false);
+    }
     return block;
   }
   function setBlockColor(block: ChatBlock, color: HighlightColor, remember = true) {
@@ -1813,6 +2278,7 @@ export function createHost(
     if (remember) saveChats();
   }
   function setCollapsed(block: ChatBlock, next: boolean, remember = true) {
+    const wasCollapsed = block.collapsed;
     block.collapsed = next;
     block.root.querySelector('.wrap')?.classList.toggle('collapsed', next);
     block.collapse.textContent = next ? '+' : '\u2212';
@@ -1822,10 +2288,34 @@ export function createHost(
     if (next) {
       block.palette.hidden = true;
       block.colorButton.setAttribute('aria-expanded', 'false');
+      // The bookmark keeps the exact page spot it sits in, and expanding again starts there
+      // instead of jumping back to the section. A block restored from storage is not in the page
+      // yet; its stored spot is already on the block and must not be replaced by the host's 0,0.
+      if (block.host.isConnected) {
+        const left = Number.parseFloat(block.host.style.left);
+        const top = Number.parseFloat(block.host.style.top);
+        if (Number.isFinite(left) && Number.isFinite(top)) {
+          block.chipX = left;
+          block.chipY = top;
+        }
+      }
     }
     // Collapsing frees vertical space and expanding needs more: re-place against the section.
     applyBlockSize(block);
-    if (block.host.isConnected) placeBlock(block);
+    if (block.host.isConnected) {
+      if (!next && wasCollapsed) {
+        block.chipX = null;
+        block.chipY = null;
+        adoptPlacement(block);
+        // A bookmark parked near the right edge must not push the wider window off screen.
+        const box = block.host.getBoundingClientRect();
+        const over = box.left + scrollX - (scrollX + innerWidth - box.width - 4);
+        if (over > 0) {
+          block.offsetX -= over;
+          placeBlock(block);
+        }
+      } else placeBlock(block);
+    }
     if (remember) saveChats();
   }
   function openChat(capture: SectionCapture, focus = false) {
@@ -1850,11 +2340,39 @@ export function createHost(
     queueHighlights();
     if (focus) block.input.focus({ preventScroll: true });
   }
+  /**
+   * The first exchange names the conversation. A failed title request falls back to the section
+   * heading, so the header never stays "New Chat" after a real question.
+   */
+  async function nameChat(block: ChatBlock, question: string, answer: string) {
+    let title = '';
+    try {
+      const result = await requestAsk({
+        action: 'title',
+        model: 'deepseek-flash',
+        text: `Reader: ${question.slice(0, 900)}\n\nBaleen: ${answer.slice(0, 900)}`,
+        title: document.title,
+      });
+      title = shortenName(result.text, 48);
+    } catch {
+      title = '';
+    }
+    if (block.closed || block.name !== 'New Chat') return;
+    const next = title || sectionName(block.anchor) || shortenName(question, 48);
+    if (!next) return;
+    block.name = next;
+    block.nameEl.textContent = next;
+    block.nameEl.title = next;
+    saveChats();
+  }
   async function sendChat(block: ChatBlock) {
     if (block.busy || block.closed) return;
     if (!block.anchor.text && !block.anchor.images.length) return;
     const prompt = block.input.value.trim();
     if (!prompt) return;
+    const first = !block.messages.some(
+      (message) => message.role === 'assistant' && !message.kind,
+    );
     const history: ChatTurn[] = block.messages
       .filter((message) => !message.kind)
       .slice(-6)
@@ -1893,6 +2411,7 @@ export function createHost(
       };
       block.usage.textContent = formatUsage(answer.usage);
       block.copy.hidden = false;
+      if (first) void nameChat(block, prompt, answer.text);
       deliver('happy');
     } catch (error) {
       if (block.closed || token !== block.token) return;
@@ -1954,7 +2473,7 @@ export function createHost(
       lines.push('');
       for (const message of block.messages) {
         if (message.kind === 'pending') continue;
-        const label = message.role === 'user' ? 'You' : 'DeepSeek';
+        const label = message.role === 'user' ? 'You' : 'Baleen';
         const suffix = message.kind === 'error' ? ' (error)' : '';
         if (message.reasoning)
           lines.push(
@@ -1967,7 +2486,17 @@ export function createHost(
         lines.push(`**${label}${suffix}:**`, message.text, '');
       }
     }
-    if (!sections) return '';
+    const talked = talkMessages.some((message) => message.role === 'user');
+    if (talked) {
+      lines.push('', '## Reading chat', '');
+      for (const message of talkMessages) {
+        if (message.kind === 'pending') continue;
+        const label = message.role === 'user' ? 'You' : 'Baleen';
+        const suffix = message.kind === 'error' ? ' (error)' : '';
+        lines.push(`**${label}${suffix}:**`, message.text, '');
+      }
+    }
+    if (!sections && !talked) return '';
     return `${lines.join('\n').trimEnd()}\n`;
   }
   function flashHint(note: HTMLSpanElement, message: string) {
@@ -1984,38 +2513,56 @@ export function createHost(
     flashHint(note, downloadText(`baleen-chats-${date}.md`, text) ? 'Saved' : 'Download blocked');
   }
   function saveChats() {
+    const items = blocks.map((block) => ({
+      id: block.id,
+      at: block.at,
+      name: block.name,
+      text: block.anchor.text.slice(0, 6000),
+      images: block.anchor.images.slice(0, 6),
+      page: block.anchor.page,
+      path:
+        block.anchor.page == null && block.anchor.element?.isConnected
+          ? elementPath(block.anchor.element)
+          : null,
+      messages: block.messages.slice(-40),
+      collapsed: block.collapsed,
+      color: block.color.id,
+      dx: Math.round(block.offsetX),
+      dy: Math.round(block.offsetY),
+      w: block.width,
+      h: block.height,
+      x: block.collapsed && block.chipX != null ? Math.round(block.chipX) : null,
+      y: block.collapsed && block.chipY != null ? Math.round(block.chipY) : null,
+    }));
+    const store = chatStore() ?? sessionStorage;
+    const write = (target: Storage, value: unknown[]) => {
+      if (value.length) target.setItem(storageKey(), JSON.stringify(value));
+      else target.removeItem(storageKey());
+    };
     try {
-      const items = blocks.map((block) => ({
-        id: block.id,
-        at: block.at,
-        name: block.name,
-        text: block.anchor.text.slice(0, 6000),
-        images: block.anchor.images.slice(0, 6),
-        page: block.anchor.page,
-        path:
-          block.anchor.page == null && block.anchor.element?.isConnected
-            ? elementPath(block.anchor.element)
-            : null,
-        messages: block.messages.slice(-40),
-        collapsed: block.collapsed,
-        color: block.color.id,
-        dx: Math.round(block.offsetX),
-        dy: Math.round(block.offsetY),
-        w: block.width,
-        h: block.height,
-      }));
-      if (items.length) sessionStorage.setItem(storageKey(), JSON.stringify(items));
-      else sessionStorage.removeItem(storageKey());
+      write(store, items);
+      if (store !== sessionStorage) sessionStorage.removeItem(storageKey());
     } catch {
-      /* Session storage can be unavailable or full; the page keeps working without it. */
+      // Local storage can be full or blocked: fall back to this tab, keeping the newest turns.
+      try {
+        write(
+          sessionStorage,
+          items.map((item) => ({ ...item, messages: item.messages.slice(-10) })),
+        );
+      } catch {
+        /* Storage can be unavailable or full; the page keeps working without it. */
+      }
     }
   }
   function restoreChats() {
     if (restored) return;
     restored = true;
     let items: unknown = null;
+    let legacy = false;
     try {
-      items = JSON.parse(sessionStorage.getItem(storageKey()) ?? '[]');
+      const saved = chatStore()?.getItem(storageKey());
+      legacy = saved == null;
+      items = JSON.parse(saved ?? sessionStorage.getItem(storageKey()) ?? '[]');
     } catch {
       return;
     }
@@ -2078,6 +2625,10 @@ export function createHost(
       reanchor(block);
       placeBlock(block);
     }
+    // Write the restored set back: conversations an older build left in session storage move to
+    // local storage and start surviving reloads and new tabs. A set already in local storage is
+    // left alone so its saved node paths survive a page that has not finished loading.
+    if (legacy) saveChats();
     syncModels();
     syncStudyButtons();
     queueHighlights();
@@ -2145,17 +2696,24 @@ export function createHost(
   askButton.type = 'button';
   askButton.title = 'Open a section chat (Alt+E)';
   askButton.setAttribute('aria-label', 'Ask DeepSeek about the selected text');
-  const askSpark = document.createElement('span');
-  askSpark.className = 'spark';
-  askSpark.setAttribute('aria-hidden', 'true');
-  askSpark.textContent = '\u2726';
+  const askBubble = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  askBubble.setAttribute('class', 'bubble');
+  askBubble.setAttribute('viewBox', '0 0 16 16');
+  askBubble.setAttribute('fill', 'none');
+  askBubble.setAttribute('stroke', 'currentColor');
+  askBubble.setAttribute('stroke-width', '1.5');
+  askBubble.setAttribute('stroke-linejoin', 'round');
+  askBubble.setAttribute('aria-hidden', 'true');
+  const askBubblePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  askBubblePath.setAttribute('d', 'M4.5 3.5h7a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2H8l-3 2.5v-2.5H4.5a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2Z');
+  askBubble.append(askBubblePath);
   const askLabel = document.createElement('span');
   askLabel.textContent = 'Ask DeepSeek';
   const askKey = document.createElement('span');
   askKey.className = 'key';
   askKey.setAttribute('aria-hidden', 'true');
   askKey.textContent = 'Alt+E';
-  askButton.append(askSpark, askLabel, askKey);
+  askButton.append(askBubble, askLabel, askKey);
   askRoot.append(askStyle, askButton);
   let pendingCapture: SectionCapture | null = null;
   let askTimer = 0;
@@ -2226,6 +2784,7 @@ export function createHost(
       if (path.includes(element)) return;
       closeStudy();
       closeCharacter();
+      closeTalk();
     },
     { capture: true, signal: abort.signal },
   );
@@ -2260,6 +2819,13 @@ export function createHost(
         event.stopPropagation();
         closeCharacter();
         characterButton.focus();
+        return;
+      }
+      if (!say.hidden) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeTalk();
+        grip.focus();
       }
     },
     { capture: true, signal: abort.signal },
@@ -2313,7 +2879,8 @@ export function createHost(
     'scroll',
     () => {
       hideAskChip();
-      queueHighlights();
+      if (blocksNeedRepair()) scheduleRepair();
+      else queueHighlights();
     },
     { capture: true, passive: true, signal: abort.signal },
   );
@@ -2362,6 +2929,7 @@ export function createHost(
     if (value.hidden) {
       closeStudy();
       closeCharacter();
+      closeTalk();
     }
     modelChoice = value.model;
     applyTheme(wrapper, value.theme);
@@ -2382,13 +2950,23 @@ export function createHost(
   }
   grip.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
+    // The page selection stays as it was: a click here talks about the page, not the selection.
     event.preventDefault();
     grip.focus();
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, originX: x, originY: y };
+    drag = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      originX: x,
+      originY: y,
+      moved: false,
+    };
     grip.setPointerCapture(event.pointerId);
   });
   grip.addEventListener('pointermove', (event) => {
     if (!drag || drag.id !== event.pointerId) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.x, event.clientY - drag.y) > 4)
+      drag.moved = true;
     move(drag.originX + event.clientX - drag.x, drag.originY + event.clientY - drag.y);
   });
   const endDrag = () => {
@@ -2399,8 +2977,10 @@ export function createHost(
   };
   grip.addEventListener('pointerup', (event) => {
     if (!drag || drag.id !== event.pointerId) return;
+    const clicked = !drag.moved;
     drag = null;
     persist();
+    if (clicked) toggleTalk();
   });
   grip.addEventListener('pointercancel', endDrag);
   grip.addEventListener('lostpointercapture', endDrag);
@@ -2413,7 +2993,16 @@ export function createHost(
         y + (event.key === 'ArrowUp' ? -amount : event.key === 'ArrowDown' ? amount : 0),
       );
       persist();
-    } else if (event.key === 'Escape' && studyPanel.hidden && characterPanel.hidden) actions.hide();
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleTalk();
+    } else if (
+      event.key === 'Escape' &&
+      studyPanel.hidden &&
+      characterPanel.hidden &&
+      say.hidden
+    )
+      actions.hide();
   });
   window.addEventListener(
     'resize',
@@ -2425,18 +3014,26 @@ export function createHost(
   );
   apply(initial);
   look('idle');
-  // The PDF reader replaces its page nodes on zoom, so blocks need a place to come back to.
-  const pagesRoot = document.getElementById('doc');
-  if (pagesRoot && typeof MutationObserver === 'function') {
-    pageWatcher = new MutationObserver(scheduleRepair);
-    pageWatcher.observe(pagesRoot, { childList: true, subtree: true, characterData: true });
+  talkMessages = readTalk();
+  renderTalk();
+  // Pages finish rendering after this script too (hydration, the PDF reader's zoom), and a rebuild
+  // detaches the nodes a restored quote was matched to. Watch the page and re-anchor when needed.
+  if (typeof MutationObserver === 'function' && document.body) {
+    pageWatcher = new MutationObserver(() => {
+      if (blocksNeedRepair()) scheduleRepair();
+    });
+    pageWatcher.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
+  // Text and webfonts settle at their own pace, so give late content a few chances to arrive.
+  for (const delay of [400, 1200, 3000]) window.setTimeout(repairSettled, delay);
+  void document.fonts?.ready.then(repairSettled).catch(() => undefined);
   restoreChats();
   return {
     element,
     apply,
     destroy() {
       saveChats();
+      saveTalk();
       abort.abort();
       hideAskChip();
       askHost.remove();

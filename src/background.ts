@@ -4,7 +4,7 @@ import { readSettings, sanitizeSettings, writeSettings } from './shared/settings
 import { DEFAULT_MODEL, DEEPSEEK_MODELS } from './shared/types';
 import type { AskAction, AskResult, ChatTurn, DeepSeekModel } from './shared/types';
 
-const ASK_ACTIONS = new Set<string>(['chat', 'summarize', 'keywords']);
+const ASK_ACTIONS = new Set<string>(['chat', 'talk', 'summarize', 'keywords', 'title']);
 const MODELS = new Set<string>(DEEPSEEK_MODELS);
 const MAX_INPUT = 12000;
 const MAX_PROMPT = 2000;
@@ -63,14 +63,15 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
         .map((image) => image.trim().slice(0, 240))
         .slice(0, MAX_IMAGES)
     : [];
-  if (action === 'chat') {
+  if (action === 'chat' || action === 'talk') {
     if (!prompt) throw new Error('Type a question first.');
     if (!text && !images.length) throw new Error('Select a section first.');
   } else if (!text) {
     throw new Error('There was nothing to send.');
   }
   const title = typeof request.title === 'string' ? request.title.slice(0, 160) : '';
-  const thinking = action === 'chat' && request.thinking === true;
+  const conversational = action === 'chat' || action === 'talk';
+  const thinking = conversational && request.thinking === true;
   const key = await readApiKey();
   if (!key) throw new Error('Add your DeepSeek API key in the popup first.');
   const controller = new AbortController();
@@ -83,9 +84,9 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
         model,
         text,
         title,
-        prompt: action === 'chat' ? prompt : undefined,
-        images: action === 'chat' ? images : undefined,
-        history: action === 'chat' ? historyFrom(request.history) : undefined,
+        prompt: conversational ? prompt : undefined,
+        images: conversational ? images : undefined,
+        history: conversational ? historyFrom(request.history) : undefined,
         thinking,
       },
       controller.signal,
