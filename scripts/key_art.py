@@ -85,35 +85,56 @@ def export(
         rgba = Image.open(src).convert("RGBA")
         rgb = np.asarray(rgba.convert("RGB"))
         coverage = np.asarray(rgba.getchannel("A")).astype(np.float32) / 255.0
-        # A supplied cut-out keeps background white in its RGB: the pale rim just inside the
-        # silhouette, and the pockets visible through hair loops. Judge white by the alpha mask
-        # rather than the whole image, or the transparent area's white connects everything and
-        # the flood eats the ruffles. Fabric shading keeps its own signal: a highlight spans a
-        # range, background white is flat.
+        # A supplied cut-out was lifted off a white page, so a flat-white band survives along the
+        # whole silhouette and as slivers inside closed hair loops. Judge white by the alpha mask
+        # rather than the whole image: the transparent area's white otherwise connects everything
+        # and the flood eats the ruffles. Flatness is the real discriminator — fabric white (apron,
+        # ruffles, tights) always carries shading, background white is a single tone.
         inside = coverage > 0.2
-        chroma = rgb.max(axis=2).astype(np.int16) - rgb.min(axis=2)
-        white = (rgb.min(axis=2) >= 242) & (chroma <= 10) & inside
-        labels, count = ndimage.label(white)
-        rim = np.unique(labels[ndimage.binary_dilation(~inside, iterations=2) & white])
-        remove = np.isin(labels, rim[rim != 0])
+        minimum = rgb.min(axis=2).astype(np.int16)
+        chroma = rgb.max(axis=2).astype(np.int16) - minimum
+        flat = (minimum >= 245) & (chroma <= 8)
+        labels, count = ndimage.label(flat)
+        remove = np.zeros_like(flat)
         if count:
-            sizes = ndimage.sum(white, labels, range(1, count + 1))
+            # The band is continuous around the figure, so seed the flood from the silhouette edge.
+            seeded = flat & ndimage.binary_dilation(~inside, iterations=3)
+            rim = np.unique(labels[seeded])
+            rim = rim[rim != 0]
+            remove = np.isin(labels, rim)
+            luminance = rgb.astype(np.float32).mean(axis=2)
+            sizes = ndimage.sum(flat, labels, range(1, count + 1))
+            means = ndimage.mean(luminance, labels, range(1, count + 1))
+            spreads = ndimage.standard_deviation(luminance, labels, range(1, count + 1))
+            boxes = ndimage.find_objects(labels)
             for index in range(1, count + 1):
-                if index in rim or sizes[index - 1] < 100:
+                if index in rim or sizes[index - 1] > 40000:
                     continue
-                region = labels == index
-                spread = rgb[region].std(axis=0).mean()
-                mean = rgb[region].mean(axis=0).mean()
+                if means[index - 1] < 244 or spreads[index - 1] > 3.0:
+                    continue
+                # Only a pocket ringed by hair is background showing through; flat patches of the
+                # blouse or apron sit inside white shading and must stay.
+                row, column = boxes[index - 1]
+                y0, y1 = max(0, row.start - 6), min(labels.shape[0], row.stop + 6)
+                x0, x1 = max(0, column.start - 6), min(labels.shape[1], column.stop + 6)
+                region = labels[y0:y1, x0:x1] == index
                 ring = ndimage.binary_dilation(region, iterations=6) & ~ndimage.binary_dilation(region, iterations=2)
-                if (chroma[ring] > 40).mean() >= 0.45 and mean >= 249 and spread <= 3.0:
-                    remove |= region
+                if not ring.any():
+                    continue
+                around = rgb[y0:y1, x0:x1].astype(np.int16)
+                blue = around[..., 2] - np.maximum(around[..., 0], around[..., 1])
+                if ((blue > 6) & ring).sum() / ring.sum() >= 0.45:
+                    remove[y0:y1, x0:x1] |= region
         coverage = np.where(remove, 0.0, coverage).astype(np.float32)
-        # The rim of the supplied matte is still white, so borrow every soft pixel's colour from
-        # the nearest solid one; unblending amplifies noise where coverage is a few percent.
-        solid = coverage >= 0.9
-        if solid.any():
-            nearest = ndimage.distance_transform_edt(~solid, return_distances=False, return_indices=True)
-            rgb = rgb[nearest[0], nearest[1]]
+        # The cut-out is white-composited, so partial pixels still carry the page white. Unblend
+        # it instead of copying a neighbour's colour, which smeared dark lineart into the edge.
+        source = rgb.astype(np.float32)
+        partial = (coverage > 0.05) & (coverage < 0.95)
+        if partial.any():
+            unblended = (source - (1.0 - coverage[..., None]) * 255.0) / np.clip(coverage[..., None], 0.05, 1.0)
+            rgb = np.where(partial[..., None], np.clip(unblended, 0, 255), source)
+        else:
+            rgb = source
         bg_color = None
     else:
         image = Image.open(src).convert("RGB")

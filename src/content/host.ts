@@ -1,10 +1,9 @@
 import { characterCSS, createCharacter } from './render/compositor';
 import { renderMarkdown } from './render/markdown';
 import { captureSection, pagePassage, requestAsk, type SectionCapture } from './ask';
-import { CHARACTERS, characterById, headURL } from '../shared/characters';
+import { characterById } from '../shared/characters';
 import { DEEPSEEK_MODELS, DEEPSEEK_MODEL_LABELS } from '../shared/types';
 import type {
-  CharacterId,
   ChatTurn,
   DeepSeekModel,
   Look,
@@ -214,18 +213,25 @@ const ASK_CSS = `
   :host { all:initial; }
   * { box-sizing:border-box; }
   button {
-    display:flex; align-items:center; gap:7px; padding:7px 13px 7px 11px;
-    border:1px solid light-dark(rgba(132,159,93,.34),rgba(154,184,110,.36)); border-radius:8px;
-    background:light-dark(#f7f9f2,#171b13); color:light-dark(#2c351c,#e6edda);
-    box-shadow:0 2px 10px light-dark(rgba(17,24,39,.12),rgba(0,0,0,.4)); cursor:pointer;
-    color-scheme:light dark;
-    font:500 12.5px/1.35 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; white-space:nowrap;
+    display:flex; align-items:center; gap:6px; padding:5px 10px 5px 8px;
+    border:1px solid light-dark(rgba(17,24,39,.1),rgba(255,255,255,.14)); border-radius:8px;
+    background:light-dark(#ffffff,#1b1b1b); color:light-dark(#0a0a0a,#f5f5f5);
+    box-shadow:0 1px 2px light-dark(rgba(17,24,39,.07),rgba(0,0,0,.45)),0 6px 20px light-dark(rgba(17,24,39,.1),rgba(0,0,0,.5));
+    cursor:pointer; color-scheme:light dark;
+    font:500 12px/1.4 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+    letter-spacing:.005em; white-space:nowrap;
     transition:background .12s,border-color .12s,box-shadow .12s;
+    animation:fg-ask-in .13s ease-out;
   }
-  button:hover { background:light-dark(#eef3e4,#1d2316); border-color:light-dark(#849f5d,#adcb80); box-shadow:0 3px 12px light-dark(rgba(17,24,39,.14),rgba(0,0,0,.45)); }
+  svg { flex:none; width:14px; height:14px; color:light-dark(#849f5d,#9ab86e); }
+  button:hover {
+    background:light-dark(#fbfcf8,#22261c); border-color:light-dark(rgba(132,159,93,.5),rgba(154,184,110,.55));
+    box-shadow:0 1px 2px light-dark(rgba(17,24,39,.08),rgba(0,0,0,.5)),0 8px 24px light-dark(rgba(17,24,39,.13),rgba(0,0,0,.55));
+  }
+  button:active { transform:translateY(.5px); }
   button:focus-visible { outline:2px solid light-dark(#849f5d,#9ab86e); outline-offset:2px; }
-  .bubble { flex:none; width:15px; height:15px; color:light-dark(#6f8a4b,#adcb80); }
-  .key { margin-left:3px; padding-left:9px; border-left:1px solid light-dark(rgba(132,159,93,.24),rgba(154,184,110,.26)); color:light-dark(#8a907c,#8d9585); font:500 10.5px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  @keyframes fg-ask-in { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { button { animation:none; } }
   :host([data-theme="light"]) button { color-scheme:light; }
   :host([data-theme="dark"]) button { color-scheme:dark; }
 `;
@@ -546,15 +552,6 @@ function applyTheme(element: Element, theme: Theme) {
   else element.setAttribute('data-theme', theme);
 }
 
-/** Packaged art path; the dev server serves the same files from the extension root. */
-function assetURL(path: string) {
-  try {
-    return chrome.runtime.getURL(path);
-  } catch {
-    return `/${path}`;
-  }
-}
-
 function downloadText(name: string, text: string): boolean {
   try {
     const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
@@ -578,7 +575,6 @@ export function createHost(
     hide(): void;
     position(value: Position): void;
     model(value: DeepSeekModel): void;
-    character(value: CharacterId): void;
     animate(value: boolean): void;
     scale(value: number): void;
   },
@@ -586,7 +582,7 @@ export function createHost(
   const element = document.createElement('div');
   element.id = 'fungusan-gal';
   element.style.cssText =
-    'all:initial!important;position:fixed!important;inset:0 auto auto 0!important;width:0!important;height:0!important;z-index:2147483647!important;pointer-events:none!important;';
+    'all:initial!important;position:absolute!important;top:0!important;left:0!important;width:0!important;height:0!important;z-index:2147483647!important;pointer-events:none!important;';
   const shadow = element.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = `${characterCSS}
@@ -667,22 +663,18 @@ export function createHost(
     .say-reply[hidden],.say-form[hidden] { display:none!important; }
     .say-reply[data-kind="pending"] { color:var(--fg-faint); cursor:default; }
     .say-reply[data-kind="error"] { color:var(--fg-danger); }
-    /* The field reads as a field at a glance: a bordered pill with a pen, and the send circle
-       brightens once there is something to send. */
+    /* The field matches the section chat's composer: a hairline box on a sunken fill, with no
+       decorative pen and no send button. Enter sends. */
     .say-form {
-      display:flex; align-items:center; gap:4px; width:min(232px, calc(100vw - 20px));
-      padding:3px 3px 3px 10px; border:1px solid var(--fg-stone); border-radius:999px;
-      background:var(--fg-bg); box-shadow:var(--fg-soft-shadow);
+      display:flex; align-items:center; width:min(232px, calc(100vw - 20px));
+      padding:6px 9px; border:1px solid var(--fg-line); border-radius:10px;
+      background:var(--fg-sunken);
       transition:border-color .15s, box-shadow .15s;
     }
-    .say-form::before { content:"\\270E"; flex:none; color:var(--fg-muted); font:11px/1 var(--fg-sans); }
-    .say-form:focus-within { border-color:var(--fg-accent); box-shadow:0 0 0 3px var(--fg-accent-soft), var(--fg-soft-shadow); }
-    .say-input { flex:1 1 auto; width:0; min-width:0; height:24px; padding:0; border:0; background:transparent; color:var(--fg-ink); font:12px/1.4 var(--fg-sans); }
+    .say-form:focus-within { border-color:var(--fg-accent); box-shadow:0 0 0 2px var(--fg-accent-soft); }
+    .say-input { flex:1 1 auto; width:0; min-width:0; height:22px; padding:0; border:0; background:transparent; color:var(--fg-ink); font:12px/1.4 var(--fg-sans); }
     .say-input::placeholder { color:var(--fg-faint); }
     .say-input:focus-visible { outline:none; }
-    .say-send { flex:none; display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--fg-accent); color:var(--fg-on-accent); font:12px/1 var(--fg-mono); transition:background .15s,color .15s; }
-    .say-send:hover:not(:disabled) { background:var(--fg-accent-hover); }
-    .say-send:disabled { background:var(--fg-sunken); color:var(--fg-faint); cursor:default; }
     .menu-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px 6px; }
     .menu-title { color:var(--fg-muted); font:600 10px/1.4 var(--fg-sans); letter-spacing:.12em; text-transform:uppercase; }
     .menu-close { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:transparent; color:var(--fg-muted); font:13px/1 var(--fg-sans); transition:background .15s,border-color .15s,color .15s; }
@@ -692,11 +684,6 @@ export function createHost(
     .menu-section { border-top:1px solid var(--fg-line); }
     .menu-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:6px 10px 2px; color:var(--fg-faint); font:600 9.5px/1.4 var(--fg-sans); letter-spacing:.1em; text-transform:uppercase; }
     .menu-count { color:var(--fg-muted); font:10px/1.4 var(--fg-sans); letter-spacing:.02em; text-transform:none; }
-    .cards { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:1px 10px 8px; }
-    .card { display:flex; align-items:center; gap:6px; padding:4px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-muted); font:10px/1.4 var(--fg-sans); text-align:left; transition:background .15s,border-color .15s,color .15s; }
-    .card img { flex:none; width:22px; height:22px; border-radius:2px; object-fit:cover; background:var(--fg-bg); }
-    .card:hover,.card:focus-visible { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
-    .card[aria-pressed="true"] { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); box-shadow:inset 0 0 0 1px var(--fg-accent-line); }
     .menu-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 10px; }
     .menu-row + .menu-row { border-top:1px solid var(--fg-line); }
     .menu-row-label { color:var(--fg-body); font-size:10px; }
@@ -728,8 +715,10 @@ export function createHost(
     .study-foot .usage { flex:1; color:var(--fg-faint); font:9px/1.5 var(--fg-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mini { flex:none; padding:3px 8px; border:1px solid var(--fg-accent-line); border-radius:3px; background:var(--fg-accent-soft); color:var(--fg-ink); font:9.5px/1.4 var(--fg-sans); transition:background .15s,border-color .15s; }
     .mini:hover,.mini:focus-visible { background:rgba(132,159,93,.16); border-color:var(--fg-accent); }
-    .ask-highlight { position:fixed; inset:0; pointer-events:none; }
-    .ask-highlight span { position:fixed; border-radius:3px; background:var(--band-fill,rgba(132,159,93,.16)); box-shadow:inset 0 0 0 1px var(--band-line,rgba(132,159,93,.45)); }
+    /* Bands sit in document coordinates, so the page scrolls them natively with the text. Fixed
+       positioning repainted on scroll trailed the compositor by a frame and read as drift. */
+    .ask-highlight { position:absolute; top:0; left:0; pointer-events:none; }
+    .ask-highlight span { position:absolute; border-radius:3px; background:var(--band-fill,rgba(132,159,93,.16)); box-shadow:inset 0 0 0 1px var(--band-line,rgba(132,159,93,.45)); }
     .ask-highlight span[data-media="true"] { background:var(--band-media,rgba(132,159,93,.1)); box-shadow:inset 0 0 0 2px var(--band-line,rgba(132,159,93,.8)); }
     @media (max-width:820px) { .fg-panel,.companion.flip .fg-panel,.companion.below .fg-panel { position:fixed; inset:auto 10px 10px; width:auto; max-height:60vh; } }
     ${MARKDOWN_CSS}
@@ -748,13 +737,13 @@ export function createHost(
   controls.className = 'controls';
   const studyButton = document.createElement('button');
   studyButton.type = 'button';
-  studyButton.title = 'Keywords or a whole-page summary with DeepSeek';
+  studyButton.title = 'Keywords or a whole-page summary with Baleen';
   studyButton.textContent = 'Study';
   studyButton.setAttribute('aria-expanded', 'false');
   studyButton.setAttribute('aria-controls', 'fg-study');
   const characterButton = document.createElement('button');
   characterButton.type = 'button';
-  characterButton.title = 'Outfit, animation, and visibility';
+  characterButton.title = 'Size, animation, and visibility';
   characterButton.textContent = 'Character';
   characterButton.setAttribute('aria-expanded', 'false');
   characterButton.setAttribute('aria-controls', 'fg-character');
@@ -764,7 +753,7 @@ export function createHost(
   studyPanel.className = 'fg-panel study-panel';
   studyPanel.hidden = true;
   studyPanel.setAttribute('role', 'region');
-  studyPanel.setAttribute('aria-label', 'Study with DeepSeek');
+  studyPanel.setAttribute('aria-label', 'Study with Baleen');
   const studyHead = document.createElement('div');
   studyHead.className = 'menu-head';
   const studyTitle = document.createElement('span');
@@ -779,46 +768,7 @@ export function createHost(
   studyBody.className = 'study-body';
   const studySource = document.createElement('p');
   studySource.className = 'menu-note';
-  const lookSection = document.createElement('div');
-  lookSection.className = 'menu-section';
-  const lookLabel = document.createElement('span');
-  lookLabel.className = 'menu-label';
-  lookLabel.textContent = 'Outfit';
-  const lookCards = document.createElement('div');
-  lookCards.className = 'cards';
-  lookCards.setAttribute('role', 'group');
-  lookCards.setAttribute('aria-label', 'Outfit');
-  const lookButtons = CHARACTERS.map((item) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'card';
-    button.dataset.character = item.id;
-    button.title = item.name;
-    button.setAttribute('aria-pressed', 'false');
-    const portrait = document.createElement('img');
-    portrait.src = assetURL(headURL(item.id));
-    portrait.alt = '';
-    portrait.width = 22;
-    portrait.height = 22;
-    const label = document.createElement('span');
-    label.textContent = item.look;
-    button.append(portrait, label);
-    button.onclick = () => {
-      if (current.character === item.id) return;
-      character.setCharacter(item.id);
-      syncLooks(item.id);
-      current = { ...current, character: item.id };
-      actions.character(item.id);
-    };
-    lookCards.append(button);
-    return button;
-  });
-  lookSection.append(lookLabel, lookCards);
-  function syncLooks(id: CharacterId) {
-    for (const button of lookButtons)
-      button.setAttribute('aria-pressed', String(button.dataset.character === id));
-  }
-  // Size sits under the outfit cards: the same slider the popup carries, applied to the live card.
+  // Size is the first control: she ships in one fixed outfit.
   const sizeSection = document.createElement('div');
   sizeSection.className = 'menu-section';
   const sizeLabel = document.createElement('span');
@@ -957,7 +907,7 @@ export function createHost(
   characterNote.className = 'menu-note';
   characterNote.textContent =
     'Turning display off hides her everywhere. Inline chat stays on. Bring her back from the extension menu or Alt/Option+Shift+G.';
-  characterBody.append(lookSection, sizeSection, characterSettings, characterNote);
+  characterBody.append(sizeSection, characterSettings, characterNote);
   characterHead.append(characterTitle, characterClose);
   characterPanel.append(characterHead, characterBody);
   const say = document.createElement('div');
@@ -978,13 +928,7 @@ export function createHost(
   talkInput.placeholder = 'Message Baleen\u2026';
   talkInput.setAttribute('aria-label', 'Message Baleen');
   talkInput.autocomplete = 'off';
-  const talkSend = document.createElement('button');
-  talkSend.type = 'submit';
-  talkSend.className = 'say-send';
-  talkSend.textContent = '\u2191';
-  talkSend.setAttribute('aria-label', 'Send message');
-  talkSend.disabled = true;
-  talkForm.append(talkInput, talkSend);
+  talkForm.append(talkInput);
   say.append(sayReply, talkForm);
   animateSwitch.control.onclick = () => {
     const animate = animateSwitch.control.getAttribute('aria-checked') !== 'true';
@@ -1000,7 +944,6 @@ export function createHost(
   };
   /** Every surface writes the same settings, so the menu reflects changes made in the popup. */
   function syncCharacterPanel(value: Settings) {
-    syncLooks(value.character);
     paintSize(value.scale);
     if (document.activeElement !== sizeInput) sizeInput.value = String(value.scale);
     animateSwitch.control.setAttribute('aria-checked', String(value.animate));
@@ -1016,16 +959,10 @@ export function createHost(
   highlightLayer.className = 'ask-highlight';
   highlightLayer.setAttribute('aria-hidden', 'true');
   const highlightBoxes: HTMLSpanElement[] = [];
-  wrapper.append(
-    highlightLayer,
-    character.element,
-    grip,
-    controls,
-    studyPanel,
-    characterPanel,
-    say,
-  );
-  shadow.append(style, wrapper);
+  wrapper.append(character.element, grip, controls, studyPanel, characterPanel, say);
+  // The highlight layer lives outside the fixed card: the card stays pinned to the viewport, while
+  // the bands are positioned against the document so scrolling moves them with the words.
+  shadow.append(style, highlightLayer, wrapper);
   clearStaleHosts();
   document.documentElement.append(element);
   let current = initial,
@@ -1258,7 +1195,7 @@ export function createHost(
       deliver('happy');
     } catch (error) {
       delete studyResult.dataset.busy;
-      setResult(error instanceof Error ? error.message : 'DeepSeek did not answer.', true);
+      setResult(error instanceof Error ? error.message : 'Baleen did not answer.', true);
       deliver('sad');
     } finally {
       busy = false;
@@ -1311,7 +1248,6 @@ export function createHost(
       sayReply.disabled = reply.kind === 'pending';
       sayReply.title = reply.kind === 'pending' ? 'Thinking\u2026' : 'Click to reply';
     }
-    talkSend.disabled = talkBusy || !talkInput.value.trim();
     placeTalk();
   }
   /** Her answer is spoken once: after a few seconds the bubble fades and leaves. */
@@ -1427,7 +1363,7 @@ export function createHost(
       if (token !== talkToken) return;
       talkMessages[talkMessages.length - 1] = {
         role: 'assistant',
-        text: error instanceof Error ? error.message : 'DeepSeek did not answer.',
+        text: error instanceof Error ? error.message : 'Baleen did not answer.',
         kind: 'error',
       };
       deliver('sad');
@@ -1451,9 +1387,6 @@ export function createHost(
   talkForm.addEventListener('submit', (event) => {
     event.preventDefault();
     void sendTalk();
-  });
-  talkInput.addEventListener('input', () => {
-    talkSend.disabled = talkBusy || !talkInput.value.trim();
   });
   talkInput.addEventListener('focus', () => {
     if (!talkBusy && Date.now() >= toneUntil) look('listen');
@@ -1557,6 +1490,8 @@ export function createHost(
     for (const block of blocks)
       for (const band of anchorBands(block.anchor)) merged.push({ band, color: block.color });
     const count = Math.min(merged.length, 240);
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
     for (let index = 0; index < count; index += 1) {
       let box = highlightBoxes[index];
       if (!box) {
@@ -1570,8 +1505,8 @@ export function createHost(
       box.style.setProperty('--band-fill', color.fill);
       box.style.setProperty('--band-media', color.media);
       box.style.setProperty('--band-line', color.line);
-      box.style.left = `${band.left}px`;
-      box.style.top = `${band.top}px`;
+      box.style.left = `${band.left + scrollX}px`;
+      box.style.top = `${band.top + scrollY}px`;
       box.style.width = `${band.right - band.left}px`;
       box.style.height = `${band.bottom - band.top}px`;
     }
@@ -2145,8 +2080,8 @@ export function createHost(
     note.hidden = !imageCount;
     note.textContent = imageCount
       ? anchor.images.length
-        ? 'DeepSeek reads text only: image captions and alt text are sent, never pixels.'
-        : 'DeepSeek reads text only: this image has no caption or alt text. Select the caption too, or ask about the page text.'
+        ? 'Baleen reads text only: image captions and alt text are sent, never pixels.'
+        : 'Baleen reads text only: this image has no caption or alt text. Select the caption too, or ask about the page text.'
       : '';
     const lastSize = readChatSize();
     const block: ChatBlock = {
@@ -2417,7 +2352,7 @@ export function createHost(
       if (block.closed || token !== block.token) return;
       block.messages[block.messages.length - 1] = {
         role: 'assistant',
-        text: error instanceof Error ? error.message : 'DeepSeek did not answer.',
+        text: error instanceof Error ? error.message : 'Baleen did not answer.',
         kind: 'error',
       };
       deliver('sad');
@@ -2694,26 +2629,13 @@ export function createHost(
   askStyle.textContent = ASK_CSS;
   const askButton = document.createElement('button');
   askButton.type = 'button';
-  askButton.title = 'Open a section chat (Alt+E)';
-  askButton.setAttribute('aria-label', 'Ask DeepSeek about the selected text');
-  const askBubble = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  askBubble.setAttribute('class', 'bubble');
-  askBubble.setAttribute('viewBox', '0 0 16 16');
-  askBubble.setAttribute('fill', 'none');
-  askBubble.setAttribute('stroke', 'currentColor');
-  askBubble.setAttribute('stroke-width', '1.5');
-  askBubble.setAttribute('stroke-linejoin', 'round');
-  askBubble.setAttribute('aria-hidden', 'true');
-  const askBubblePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  askBubblePath.setAttribute('d', 'M4.5 3.5h7a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2H8l-3 2.5v-2.5H4.5a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2Z');
-  askBubble.append(askBubblePath);
+  askButton.title = 'Open a section chat';
+  askButton.setAttribute('aria-label', 'Ask Baleen about the selected text');
+  askButton.innerHTML =
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>';
   const askLabel = document.createElement('span');
-  askLabel.textContent = 'Ask DeepSeek';
-  const askKey = document.createElement('span');
-  askKey.className = 'key';
-  askKey.setAttribute('aria-hidden', 'true');
-  askKey.textContent = 'Alt+E';
-  askButton.append(askBubble, askLabel, askKey);
+  askLabel.textContent = 'Ask Baleen';
+  askButton.append(askLabel);
   askRoot.append(askStyle, askButton);
   let pendingCapture: SectionCapture | null = null;
   let askTimer = 0;

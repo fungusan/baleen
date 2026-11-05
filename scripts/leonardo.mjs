@@ -112,6 +112,7 @@ async function request({
   refStrength = 'High',
   pose,
   cnWeight = 0.45,
+  modelId = MODEL,
 }) {
   if (prompt.length > 1500) fail(`prompt is ${prompt.length} chars; Leonardo max is 1500`);
   const initId = presetInitId ?? (init ? await upload(init) : null);
@@ -129,7 +130,7 @@ async function request({
   const body = {
     prompt,
     negative_prompt: negative,
-    modelId: MODEL,
+    modelId,
     width: WIDTH,
     height: HEIGHT,
     num_images: 1,
@@ -316,6 +317,7 @@ if (cli._[0] === 'claude') {
     refStrength: cli['ref-strength'] ?? 'High',
     pose: cli.pose,
     cnWeight: Number(cli['cn-weight'] ?? 0.45),
+    modelId: cli['model-id'] ?? MODEL,
   });
 } else {
   fail(

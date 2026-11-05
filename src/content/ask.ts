@@ -161,6 +161,6 @@ export async function requestAsk(request: AskRequest): Promise<AskResult> {
   } catch {
     throw new Error('The extension was reloaded. Refresh the page and try again.');
   }
-  if (!reply?.ok || !reply.data) throw new Error(reply?.error ?? 'DeepSeek did not answer.');
+  if (!reply?.ok || !reply.data) throw new Error(reply?.error ?? 'Baleen did not answer.');
   return reply.data;
 }

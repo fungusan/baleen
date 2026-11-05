@@ -1,19 +1,18 @@
 # Baleen
 
-Manifest V3 Chromium extension (`0.0.0`). She appears on every HTTP(S) page as a single idle drawing,
+Manifest V3 Chromium extension (`1.1.0`). She appears on every HTTP(S) page as a single idle drawing,
 texts with you about the page in a one-line reading chat, opens a chat window beside any section you
 highlight, and pulls keywords or a whole-page summary through the DeepSeek API using your own key. Top-level PDFs
-open in a bundled reader with the same selection chat and Study actions. The outfit, size, position,
-theme, the hidden and animation flags, and the chosen model are the only saved preferences.
+open in a bundled reader with the same selection chat and Study actions. The size, position, theme,
+the hidden and animation flags, and the chosen model are the only saved preferences.
 
 ## Companion
 
-DeepSeek wears one of two outfits: her maid dress or a school uniform. Hover her to reveal two menu
-buttons, **Study** (keywords, page summary, session tools) and **Character**. The Character menu
-holds her **Outfit** cards, a **Size** slider under them, an **Animate** switch, and **Show on
-pages**; the popup keeps the same size slider and the show-on-pages switch. Every surface writes the
-same settings, so a choice applies to every tab at once and survives a reload. Each outfit is one
-idle render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
+Baleen wears her maid dress. Hover her to reveal two menu buttons, **Study** (keywords, page
+summary, session tools) and **Character**. The Character menu holds a **Size** slider, an
+**Animate** switch, and **Show on pages**; the popup keeps the same size slider and the
+show-on-pages switch. Every surface writes the same settings, so a choice applies to every tab at
+once and survives a reload. She has one idle render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
 that drawing — no per-state art — and they are driven only by what you do in her own chats and Study
 panel; page text is never read until you send her a message. **Animate** off freezes those keyframes
 while keeping the drawing and the bubble.
@@ -27,7 +26,8 @@ or dark appearance; **Theme** in the popup can pin Light or Dark instead.
 ## Reading chat
 
 Click her (or focus her and press Enter) and a small speech bubble appears above her head with a
-visible message field: a rounded pill with a pen and a send circle, so it is clear where to type.
+visible message field: the same hairline composer the section chat uses, so it is clear where to
+type, and Enter sends.
 Send a question and she replaces the field with exactly one short sentence in a rounded, friendly
 face, plain text, like a friend replying. The sentence stays for a few seconds and then fades; it is
 not replayed the next time you click her, which opens the field again. There is no window, thread,
@@ -40,9 +40,8 @@ follow the exchange.
 
 ## Section chat and Study
 
-Save a DeepSeek API key in the popup. Highlight a section and a rounded **Ask DeepSeek** button
-appears at the end of the selection; click it (or press Alt+E) and a compact chat window opens beside
-the section, anchored to its last selected line. The window floats over the article instead of joining
+Save a DeepSeek API key in the popup. Highlight a section and an **Ask Baleen** button appears
+at the end of the selection; click it and a compact chat window opens beside the section, anchored to its last selected line. The window floats over the article instead of joining
 its layout, so a long section never stretches or reflows the page; it stays next to its section as
 you scroll. It opens below the selection, steps above it when the viewport is short of room, and can
 be dragged by its header or by any answer it has written if you want it elsewhere — the offset is
@@ -68,8 +67,8 @@ a window is open. A new window starts as **New Chat**; after its first answer it
 title generated from the exchange, falling back to the section's heading if that request fails. The
 name sits slightly larger in the header and survives a reload. Type a question and
 Send: the selected text, the question, and any image captions or alt text in that section go to
-DeepSeek. DeepSeek's API is text-only, so image pixels are never sent, and the window says so when a
-selection includes images. Follow-up questions keep the same section context, and the model chosen
+Baleen. The request behind her is DeepSeek's API, which is text-only, so image pixels are never
+sent, and the window says so when a selection includes images. Follow-up questions keep the same section context, and the model chosen
 in the popup (or in a section window) picks between `deepseek-flash` and `deepseek-v4-pro`.
 Answers render Markdown (lists, tables, emphasis, inline code, fenced blocks, links) and LaTeX:
 `$...$` inline and `$$...$$` on its own line. Chat answers are requested in thinking mode, and the
@@ -125,17 +124,16 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/shared/key.ts` — API key validation and local storage.
 - `src/content/` — companion card, the Study and Character menus, and the anchored section chat
   windows.
-- `src/shared/` — outfit metadata, settings sanitization, and message types.
-- `public/characters/` — one folder per outfit with its bundled WebP render and head crop.
+- `src/shared/` — character metadata, settings sanitization, and message types.
+- `public/characters/` — her bundled WebP render.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
 - `public/icons/` — toolbar icons.
-- `art-src/` — the supplied cut-out behind the shipped render, its reference sheets, and the
-  generation prompts kept for provenance.
+- `art-src/baleen/` — the supplied cut-out behind the shipped render.
 
 ## Artwork
 
-The maid render comes from the user's supplied cut-out; the school-uniform render was generated for
-this build. Both are cut from a solid green background, cleaned of its rim, and normalised to one
-solid-alpha height. Source art was produced for this personal build from the user's supplied
-samples. The samples' creator/license has not been established; no redistribution rights are
+The render comes from the user's supplied cut-out. It is matted off the white page it was lifted
+from — the flat-white band along the silhouette and inside hair loops is removed, while the shaded
+white of the apron, ruffles and tights is kept — then normalised to one solid-alpha height. Source
+art was produced for this personal build from the user's supplied samples. The samples' creator/license has not been established; no redistribution rights are
 claimed. See `LICENSE`.

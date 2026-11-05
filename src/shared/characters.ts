@@ -4,8 +4,6 @@ export interface Character {
   id: CharacterId;
   /** Accessible name for the card. */
   name: string;
-  /** Short card label; every entry is the same girl in a different outfit. */
-  look: string;
   /** Glow colour, taken from the character's palette in the supplied art. */
   accent: string;
   /** Width / height of the trimmed full-body art, so the overlay box hugs the figure. */
@@ -15,25 +13,16 @@ export interface Character {
   /** Pixels to raise the fixed-size emote bubble above hair that reaches the canvas top. */
   lift: number;
 }
-// One girl ships in this build, in two outfits. IDs are the storage/art keys.
+// One girl ships in this build, in one outfit, so the art, storage key and overlay geometry all
+// live in a single entry and there is no outfit to choose.
 export const CHARACTERS: readonly Character[] = [
   {
     id: 'baleen',
-    name: 'Baleen, maid',
-    look: 'Maid',
+    name: 'Baleen',
     accent: '#2f4a8a',
     aspect: 0.553,
     inset: { top: 0, right: 0.094 },
     lift: 0,
-  },
-  {
-    id: 'baleen-school',
-    name: 'Baleen, school uniform',
-    look: 'School',
-    accent: '#3457a0',
-    aspect: 0.530,
-    inset: { top: 0, right: 0.223 },
-    lift: 24,
   },
 ];
 export const DEFAULT_CHARACTER: CharacterId = 'baleen';
@@ -43,7 +32,7 @@ export const characterById = (id: CharacterId): Character =>
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '29';
+const ART_REVISION = '31';
 const assetVersion = () => {
   try {
     const version =
@@ -61,5 +50,3 @@ const assetVersion = () => {
 };
 /** The idle render for one outfit; she has no other drawings. */
 export const artURL = (id: CharacterId) => `characters/${id}/full.webp?v=${assetVersion()}`;
-/** Head badge derived from the same transparent render, for the companion card and the pickers. */
-export const headURL = (id: CharacterId) => `characters/${id}/head.png?v=${assetVersion()}`;

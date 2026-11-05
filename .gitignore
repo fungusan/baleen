@@ -11,8 +11,8 @@ __pycache__/
 
 # Design sources: only the character master that the shipped render comes from is versioned
 art-src/*
-!art-src/deepseek
-art-src/deepseek/*
-!art-src/deepseek/raw
-art-src/deepseek/raw/*
-!art-src/deepseek/raw/master-idle-v2.png
+!art-src/baleen
+art-src/baleen/*
+!art-src/baleen/raw
+art-src/baleen/raw/*
+!art-src/baleen/raw/master-idle-v2.png
