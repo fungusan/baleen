@@ -1,7 +1,7 @@
 Baleen — personal project
 
-No public redistribution or open-source license has been selected for the project code or original character artwork. All rights reserved by the applicable rights holders unless separately authorized.
+The project code (everything under `src/`, `scripts/` and the build configuration) is not open source. All rights reserved by the applicable rights holder unless separately authorized.
 
-The bundled full-body character art was produced for this build from the user-supplied reference illustration and keyed to a transparent background. Its creator and license have not been established. Inclusion in this local personal build does not grant redistribution rights; obtain the applicable rights holder's permission before sharing or publishing it. Icons retain their project origin. No provider affiliation or endorsement is implied.
+Character art is licensed separately and is **not** covered by the code terms. The bundled full-body renders (the maid for V4 Pro and the notebook version for Flash) and the chibi icon derivatives of the maid are fan art of the DeepSeek 娘化 character by ZipZipPipe (https://www.pixiv.net/en/artworks/148186519), itself a derivative of 上善's whale-girl OC 溟月 (https://www.pixiv.net/en/users/62155430) under CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/). Required attribution: ZipZipPipe and 上善. The terms are non-commercial and share-alike: do not sell the art or any build including it, and keep the same license and credit on redistribution. The supplied drawings were matted to transparent backgrounds and normalised for display; that processing adds no rights. No provider affiliation or endorsement is implied.
 
 Third-party development tools and dependencies retain their respective licenses. Their licenses do not grant rights to unrelated reference artwork or provider trademarks.

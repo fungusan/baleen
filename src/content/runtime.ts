@@ -28,8 +28,6 @@ export async function startCompanion() {
         hide: () => save({ hidden: true }),
         position: (position) => save({ position }),
         model: (model) => save({ model }),
-        animate: (animate) => save({ animate }),
-        scale: (scale) => save({ scale }),
       });
     } else mounted.apply(value);
   }
@@ -40,6 +38,16 @@ export async function startCompanion() {
     /** Replay the saved state; a mounted card reapplies without flicker, a missing one mounts. */
     async refresh() {
       if (!disposed) reconcile(await readSettings());
+    },
+    study(action: 'keywords' | 'summarize') {
+      if (!mounted) return Promise.reject(new Error('Baleen is still starting. Try again.'));
+      return mounted.study(action);
+    },
+    exportChats() {
+      return mounted?.exportChats() ?? '';
+    },
+    closeChats() {
+      return mounted?.closeChats() ?? 0;
     },
     dispose() {
       disposed = true;

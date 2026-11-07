@@ -1,4 +1,5 @@
 import { askDeepSeek } from './shared/deepseek';
+import { asksAboutBaleen } from './shared/help';
 import { readApiKey } from './shared/key';
 import { readSettings, sanitizeSettings, writeSettings } from './shared/settings';
 import { DEFAULT_MODEL, DEEPSEEK_MODELS } from './shared/types';
@@ -11,6 +12,7 @@ const MAX_PROMPT = 2000;
 const MAX_IMAGES = 6;
 const MAX_HISTORY = 6;
 const MAX_HISTORY_ITEM = 2000;
+const MAX_NOTES = 3000;
 const RAW_TTL = 15_000;
 /** PDF URLs the reader was explicitly asked to hand back to Chrome's own viewer. */
 const rawBypass = new Map<string, number>();
@@ -65,11 +67,15 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
     : [];
   if (action === 'chat' || action === 'talk') {
     if (!prompt) throw new Error('Type a question first.');
-    if (!text && !images.length) throw new Error('Select a section first.');
+    // A question about Baleen herself needs no page text; every other turn does.
+    if (!text && !images.length && !asksAboutBaleen(prompt))
+      throw new Error('Select a section first.');
   } else if (!text) {
     throw new Error('There was nothing to send.');
   }
   const title = typeof request.title === 'string' ? request.title.slice(0, 160) : '';
+  const notes =
+    typeof request.notes === 'string' ? request.notes.trim().slice(0, MAX_NOTES) : '';
   const conversational = action === 'chat' || action === 'talk';
   const thinking = conversational && request.thinking === true;
   const key = await readApiKey();
@@ -87,6 +93,7 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
         prompt: conversational ? prompt : undefined,
         images: conversational ? images : undefined,
         history: conversational ? historyFrom(request.history) : undefined,
+        notes: conversational ? notes : undefined,
         thinking,
       },
       controller.signal,
@@ -161,8 +168,12 @@ async function handle(message: unknown) {
 chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
   if (sender.id !== chrome.runtime.id) return;
   const m = object(message);
-  const failed = (error: unknown) =>
-    reply({ ok: false, error: error instanceof Error ? error.message : 'Could not save.' });
+  const failed = (error: unknown) => {
+    reply({
+      ok: false,
+      error: error instanceof Error ? error.message : 'Could not save.',
+    });
+  };
   if (m.type === 'fg:ask') {
     void answer(m.request, sender).then((data) => reply({ ok: true, data }), failed);
     return true;

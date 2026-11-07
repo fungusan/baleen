@@ -69,7 +69,7 @@
 .fg-emote:empty {
   display: none;
 }
-/* The Character menu can stop the decorative motion; she then holds the pose still. */
+/* The popup's Animate switch can stop the decorative motion; she then holds the pose still. */
 .fg-character[data-animated='false'] .fg-body {
   animation: none !important;
 }

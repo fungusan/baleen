@@ -1,27 +1,28 @@
 # Baleen
 
-Manifest V3 Chromium extension (`1.1.0`). She appears on every HTTP(S) page as a single idle drawing,
-texts with you about the page in a one-line reading chat, opens a chat window beside any section you
-highlight, and pulls keywords or a whole-page summary through the DeepSeek API using your own key. Top-level PDFs
-open in a bundled reader with the same selection chat and Study actions. The size, position, theme,
-the hidden and animation flags, and the chosen model are the only saved preferences.
+Manifest V3 Chromium extension (`1.2.0`). She appears on every HTTP(S) page as one of two idle
+drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
+section you highlight, and runs keywords or a whole-page summary through the DeepSeek API using your
+own key. Top-level PDFs open in a bundled reader with the same selection chat and Study actions.
+Preferences, notes, and open section chats are saved in the extension.
 
 ## Companion
 
-Baleen wears her maid dress. Hover her to reveal two menu buttons, **Study** (keywords, page
-summary, session tools) and **Character**. The Character menu holds a **Size** slider, an
-**Animate** switch, and **Show on pages**; the popup keeps the same size slider and the
-show-on-pages switch. Every surface writes the same settings, so a choice applies to every tab at
-once and survives a reload. She has one idle render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
-that drawing — no per-state art — and they are driven only by what you do in her own chats and Study
-panel; page text is never read until you send her a message. **Animate** off freezes those keyframes
+Baleen has two drawings chosen by the chat model: the maid for **V4 Pro** and the notebook version
+for **Flash**. Neither adds buttons to the page. The toolbar popup keeps the original
+compact panel: **Appearance** (theme, show on pages, size, animate) and **Connection** (API key and
+model). **Study** opens a second level in the same popup for keywords, summarize, export chats,
+close all chats, and your notes, with **Back** to return to the settings. Every surface writes the same
+settings, so a choice applies to every tab at once and survives a reload. Each model has one idle
+render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
+that drawing — no per-state art — and they are driven only by what you do in the popup or her own
+chats; page text is never read until you send her a message. **Animate** off freezes those keyframes
 while keeping the drawing and the bubble.
 Reduced-motion users get the static drawing and the bubble. **Show on pages** in the popup hides or
-restores her on every tab (Alt+Shift+G works too — Option+Shift+G on a Mac); turning it off from the
-Character menu hides her the same way, and the extension menu or the shortcut brings her back.
-Opening the popup re-injects her into any tab whose content script a reloaded extension orphaned, so
-she returns without a page refresh. The popup, her panels and her chat blocks follow the device light
-or dark appearance; **Theme** in the popup can pin Light or Dark instead.
+restores her on every tab (Alt+Shift+G works too — Option+Shift+G on a Mac), and the extension menu
+or the shortcut brings her back. Opening the popup re-injects her into any tab whose content script a
+reloaded extension orphaned, so she returns without a page refresh. The popup and her chat blocks
+follow the device light or dark appearance; **Theme** in the popup can pin Light or Dark instead.
 
 ## Reading chat
 
@@ -31,12 +32,17 @@ type, and Enter sends.
 Send a question and she replaces the field with exactly one short sentence in a rounded, friendly
 face, plain text, like a friend replying. The sentence stays for a few seconds and then fades; it is
 not replayed the next time you click her, which opens the field again. There is no window, thread,
-header, or model picker. She travels with the page's main readable text shortened to 6,000
-characters and the last six turns of the conversation shortened to 600 characters each, so
-follow-ups keep the thread without resending everything. Click her again, press Escape, or click
-the page to close the bubble; the conversation belongs to the page and survives a reload in the
-tab's session, and **Export chats** in Study includes it. Her thinking, speaking, and reaction beats
-follow the exchange.
+header, or model picker. Before the request, the page is searched in the tab: paragraphs are scored
+against your message and only the passages that match travel with it, about 3,500 characters, never
+the whole page. A question that matches nothing falls back to a spread sample. The last six turns
+also travel, shortened to 600 characters each, so follow-ups keep the thread. Click her again, press
+Escape, or click the page to close the bubble; the conversation belongs to the page and survives a
+reload in the tab's session, and **Export chats** in Study includes it. Her thinking, speaking, and
+reaction beats follow the exchange.
+Ask how to use Baleen — how to hide her, where a control lives, what Study does, what leaves the
+device — and she answers from a short built-in reference. That reference travels only with messages
+that ask about the extension, is trusted documentation rather than page text, and lets her answer
+even on a page with no readable text.
 
 ## Section chat and Study
 
@@ -57,7 +63,8 @@ ten-color palette, and the dot in the window header opens the palette when you w
 The same color carries into the bookmark, the selection outline, the user's messages, and the send
 button, so sections stay tellable apart.
 The selection itself is never touched, so dragging, copying, and other browser actions behave as if
-the extension were not there. Close a window with its × or Escape, or clear them all from **Study**.
+the extension were not there. Close a window with its × or Escape, or clear them all from **Study** in
+the popup.
 Windows are remembered on the site itself, so a reload, a new tab or a browser restart restores them
 with their conversation, color, dragged position, size, and open/collapsed state, and a dragged
 bookmark comes back at the exact spot it was left in; the section's outline comes back too, even on a
@@ -75,21 +82,43 @@ Answers render Markdown (lists, tables, emphasis, inline code, fenced blocks, li
 chain of thought comes back in a collapsible **Thought for Ns** block above the answer. Raw HTML in
 a reply stays literal text.
 
-Open **Study** beside her for **Keywords** or **Summarize** across the page's main readable text,
+Open **Study** in the popup for **Keywords** or **Summarize** across the page's main readable text,
 plus **Export chats** (a Markdown transcript of what you asked on this page this session: each
 section conversation filed under its auto name, followed by her reading chat) and
-**Close all chats**. Study answers use the same Markdown and LaTeX rendering as chat. Requests go from the service worker straight to `https://api.deepseek.com`; the
-key is stored in `chrome.storage.local`, never shown again after saving, and never reaches the page.
+**Close all chats**. Study reads the tab you opened the popup from, including the bundled PDF reader,
+and answers with the same Markdown and LaTeX rendering as chat. Requests go from the service worker
+straight to `https://api.deepseek.com`; the key is stored in `chrome.storage.local`, never shown
+again after saving, and never reaches the page.
+
+## Notes and page search
+
+She never sends a whole page just to answer a chat message. On a web page the content script walks
+the semantic blocks in the main region (on a PDF, the text extracted page by page), splits them into
+passage-sized pieces, and scores them against the question with a small local lexical ranker. Only
+the best passages and their neighbors travel — about 3,500 characters — and a vague question gets an
+evenly spread sample instead. Section chat stays narrower still: it sends the selected section.
+
+**Notes** in the popup are a key-value store in `chrome.storage.local` shared by every tab. The key
+and value sit on one row: add a key such as `tone` with a value such as `Prefers short, concrete
+answers`, edit the value, or delete the entry; keys are matched case-insensitively, so saving the
+same key updates it. Notes travel with section and reading chats as reference (newest first, about
+2,400 characters). Ask either chat to remember something — "remember that I prefer short examples" —
+and she adds a note, which appears in the popup list; only an explicit request writes one, and you
+can still edit or delete it. A section chat reads and writes the same notes but still sends only its
+selected section, while her reading chat searches the page for relevant passages and answers in one
+short sentence. The API key sits in the same local storage and is sent only to
+`https://api.deepseek.com` when you ask.
 
 ## PDF reader
 
 A top-level PDF response is redirected into `viewer.html`, which renders it with pdf.js. Pages draw
-lazily as you scroll, the text layer is selectable, and the companion, section chat windows, and
-Study work exactly as on a web page: a selection becomes the section, each window stays anchored to
-its selection through zoom, and Keywords or Summarize use the text extracted from the whole document. **Download** saves the original file, and **Open original** hands
-the URL back to Chrome's built-in viewer once. Attachments (`Content-Disposition: attachment`) still
-download normally. Chrome's native PDF viewer cannot host content scripts, so she does not mount
-there.
+lazily as you scroll, the text layer is selectable, and the companion and section chat windows work
+exactly as on a web page: a selection becomes the section, and each window stays anchored to its
+selection through zoom. The popup's Keywords or Summarize use the text extracted from the whole
+document, and the reading chat searches the per-page text. **Download** saves the original file, and
+**Open original** hands the URL back to Chrome's built-in viewer once. Attachments
+(`Content-Disposition: attachment`) still download normally. Chrome's native PDF viewer cannot host
+content scripts, so she does not mount there.
 
 The PDF itself is fetched directly from the site by the extension, with the site's cookies, and is
 never uploaded anywhere. Pages and text layers are rendered in the tab. Only the DeepSeek request you
@@ -117,23 +146,35 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
   DeepSeek host permission, CSP.
 - `src/viewer/` — bundled pdf.js reader: lazy page rendering, selectable text layer, whole-document
   text extraction for Study, download and open-original escape hatches.
-- `src/popup/` — show-on-pages switch, size slider, model choice, and API key management.
+- `src/popup/` — the compact Appearance and Connection panel, plus the Study level with notes.
 - `src/background.ts` — serialized preference writes, the show/hide shortcut, tab re-injection, and
   DeepSeek requests.
 - `src/shared/deepseek.ts` — DeepSeek client, model selection, and prompts.
 - `src/shared/key.ts` — API key validation and local storage.
-- `src/content/` — companion card, the Study and Character menus, and the anchored section chat
-  windows.
+- `src/shared/help.ts` — the trusted built-in reference about Baleen, attached only to messages that
+  ask about the extension.
+- `src/shared/notes.ts` — the reader's editable key-value notes and their request budget.
+- `src/content/` — companion card, the anchored section chat windows, and the reading chat.
+- `src/content/retrieve.ts` — the local passage ranker that keeps whole pages out of requests.
 - `src/shared/` — character metadata, settings sanitization, and message types.
-- `public/characters/` — her bundled WebP render.
+- `public/characters/` — her bundled WebP renders, one per chat model.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
 - `public/icons/` — toolbar icons.
-- `art-src/baleen/` — the supplied cut-out behind the shipped render.
+- `art-src/baleen/` — the supplied cut-outs behind the shipped renders.
 
 ## Artwork
 
-The render comes from the user's supplied cut-out. It is matted off the white page it was lifted
-from — the flat-white band along the silhouette and inside hair loops is removed, while the shaded
-white of the apron, ruffles and tights is kept — then normalised to one solid-alpha height. Source
-art was produced for this personal build from the user's supplied samples. The samples' creator/license has not been established; no redistribution rights are
-claimed. See `LICENSE`.
+The character renders are derivative fan art, not original work for this project.
+
+- Character: DeepSeek 娘化 ("AI娘化") by [ZipZipPipe](https://www.pixiv.net/en/artworks/148186519)
+  (Pixiv, 2026-08-09). The artist's terms: credit the author, no commercial use.
+- Original design: the whale-girl OC 溟月 by [上善](https://www.pixiv.net/en/users/62155430),
+  reused under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+- This build keeps both conditions: the credit is shown in the popup footer and attributed here,
+  it is non-commercial, and any redistribution of the art stays under the same share-alike license.
+
+Processing: both supplied drawings are matted off a white page — the maid cut-out's flat-white band
+and hair-loop pockets, and the Flash drawing's off-white page, are removed while the shaded white of
+the apron, notebook, ruffles and socks is kept — then normalised to one solid-alpha height. The
+toolbar icons are chibi derivatives of the maid drawing under the same terms. The art process is in
+`art-src/baleen/WORKFLOW.md`. See `LICENSE`.

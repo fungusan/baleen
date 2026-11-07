@@ -1,4 +1,4 @@
-import type { CharacterId } from './types';
+import type { CharacterId, DeepSeekModel } from './types';
 
 export interface Character {
   id: CharacterId;
@@ -13,8 +13,8 @@ export interface Character {
   /** Pixels to raise the fixed-size emote bubble above hair that reaches the canvas top. */
   lift: number;
 }
-// One girl ships in this build, in one outfit, so the art, storage key and overlay geometry all
-// live in a single entry and there is no outfit to choose.
+// She has two drawings, and the chat model chooses which one is on the page: the maid for V4 Pro
+// and the notebook version for Flash. There is no outfit picker; the art follows the model.
 export const CHARACTERS: readonly Character[] = [
   {
     id: 'baleen',
@@ -24,15 +24,24 @@ export const CHARACTERS: readonly Character[] = [
     inset: { top: 0, right: 0.094 },
     lift: 0,
   },
+  {
+    id: 'baleen-flash',
+    name: 'Baleen',
+    accent: '#2f4a8a',
+    aspect: 0.522,
+    inset: { top: 0, right: 0.206 },
+    lift: 0,
+  },
 ];
-export const DEFAULT_CHARACTER: CharacterId = 'baleen';
+export const characterForModel = (model: DeepSeekModel): CharacterId =>
+  model === 'deepseek-v4-pro' ? 'baleen' : 'baleen-flash';
 export const characterById = (id: CharacterId): Character =>
   CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 /**
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '31';
+const ART_REVISION = '32';
 const assetVersion = () => {
   try {
     const version =

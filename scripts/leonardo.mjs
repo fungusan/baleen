@@ -5,6 +5,9 @@
 //   LEONARDO_KEY=... node scripts/leonardo.mjs claude listening
 //   LEONARDO_KEY=... node scripts/leonardo.mjs image --ref ref.jpg --prompt "..." --out out.jpg
 //   LEONARDO_KEY=... node scripts/leonardo.mjs gemini --ref ref.jpg --prompt-file p.txt --out out.jpg
+//   LEONARDO_KEY=... node scripts/leonardo.mjs gemini --ref ref.png --transparency --quantity 4 --prompt-file p.txt --out out.png
+//
+// Boolean flags (--transparency, --plain-refs, --force) take no value, so they may appear anywhere.
 //
 // `claude` / `image` use the classic Anime XL endpoint and upload the sample as a Character
 // Reference ControlNet (preprocessor 133). On SDXL models Leonardo ignores `imagePrompts`, so
@@ -178,8 +181,22 @@ async function request({
 // Nano Banana Pro image references accept a role weight per image, but only in the
 // {id, type: UPLOADED} form — the BASE64 form cannot carry `strength`. References are
 // therefore uploaded through /init-image first, as the API docs show.
-async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, model = 'gemini-image-2', seed, plainRefs = false, quality, styleId }) {
+async function gemini({
+  prompt,
+  refs = [],
+  out,
+  width = 1696,
+  height = 2528,
+  model = 'gemini-image-2',
+  seed,
+  plainRefs = false,
+  quality,
+  styleId,
+  quantity = 1,
+  transparency = false,
+}) {
   if (prompt.length > 7500) fail(`prompt is ${prompt.length} chars; Nano Banana Pro max is 7500`);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 8) fail('quantity must be 1-8');
   const imageReference = [];
   for (const { file, strength = 'MID' } of refs) {
     const id = await upload(file);
@@ -191,10 +208,11 @@ async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, mod
     prompt,
     width,
     height,
-    quantity: 1,
+    quantity,
     prompt_enhance: 'OFF',
     guidances: { image_reference: imageReference },
   };
+  if (transparency) parameters.transparency = true;
   if (quality) parameters.quality = quality;
   if (styleId) parameters.style_ids = [styleId];
   if (seed) parameters.seed = Number(seed);
@@ -214,22 +232,30 @@ async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, mod
   const cost = generate.cost?.amount ?? '?';
   console.log(`generation ${id} $${cost}`);
 
-  let url = '';
+  let urls = [];
   for (let i = 0; i < 150; i += 1) {
     await new Promise((r) => setTimeout(r, 2000));
     const generation = (await api(`/generations/${id}`)).generations_by_pk;
     if (generation?.status === 'COMPLETE') {
-      url = generation.generated_images[0].url;
+      urls = generation.generated_images.map((image) => image.url);
       break;
     }
     if (generation?.status === 'FAILED') fail('generation failed');
     console.log(generation?.status ?? 'PENDING');
   }
-  if (!url) fail('timed out');
+  if (!urls.length) fail('timed out or no images returned');
 
-  const image = Buffer.from(await (await fetch(url)).arrayBuffer());
-  await mkdir(resolve(out, '..'), { recursive: true });
-  await writeFile(out, image);
+  const stem = out.replace(/\.[^.]+$/, '');
+  const ext = out.slice(stem.length);
+  const saved = [];
+  for (const [index, url] of urls.entries()) {
+    const file = index === 0 ? out : `${stem}-${index + 1}${ext}`;
+    const image = Buffer.from(await (await fetch(url)).arrayBuffer());
+    await mkdir(resolve(file, '..'), { recursive: true });
+    await writeFile(file, image);
+    saved.push(file);
+    console.log(`saved ${file} ${image.length} bytes`);
+  }
   await writeFile(
     out.replace(/\.[^.]+$/, '.json'),
     JSON.stringify(
@@ -238,7 +264,10 @@ async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, mod
         model,
         size: [width, height],
         cost,
-        url,
+        quantity,
+        transparency,
+        urls,
+        outputs: saved,
         prompt,
         seed: seed ? Number(seed) : null,
         refs: imageReference.map((ref, i) => ({ file: refs[i].file, ...ref.image, strength: ref.strength ?? null })),
@@ -247,15 +276,19 @@ async function gemini({ prompt, refs = [], out, width = 1696, height = 2528, mod
       2,
     ),
   );
-  console.log(`saved ${out} ${image.length} bytes`);
 }
+
+const BOOLEAN_FLAGS = new Set(['transparency', 'plain-refs', 'force']);
 
 function args(argv) {
   const parsed = { _: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (!token.startsWith('--')) parsed._.push(token);
-    else parsed[token.slice(2)] = argv[++i] ?? true;
+    else {
+      const key = token.slice(2);
+      parsed[key] = BOOLEAN_FLAGS.has(key) ? true : argv[++i] ?? true;
+    }
   }
   return parsed;
 }
@@ -304,6 +337,8 @@ if (cli._[0] === 'claude') {
     plainRefs: cli['plain-refs'] === true,
     quality: cli.quality,
     styleId: cli['style-id'],
+    quantity: Number(cli.quantity ?? 1),
+    transparency: cli.transparency === true,
   });
 } else if (cli._[0] === 'image') {
   if ((!cli.ref && !cli.init) || !cli.prompt || !cli.out) fail('image needs --init or --ref, --prompt and --out');
@@ -322,7 +357,7 @@ if (cli._[0] === 'claude') {
 } else {
   fail(
     'usage: leonardo.mjs claude <state|all> [--ref sample.jpg] [--init-strength 0.55] | ' +
-      'leonardo.mjs gemini --refs sheet.jpg=HIGH,face.jpg=HIGH,pose.jpg=MID [--seed 1234] --prompt-file p.txt --out out.jpg | ' +
+      'leonardo.mjs gemini --refs sheet.jpg=HIGH,face.jpg=HIGH,pose.jpg=MID [--seed 1234] [--quantity 4] [--transparency] --prompt-file p.txt --out out.jpg | ' +
       'leonardo.mjs gemini --ref ref.jpg [--style-ref style.jpg] [--face-ref face.jpg] --prompt-file p.txt --out out.jpg | ' +
       'leonardo.mjs image --init ... --prompt ... --out ...',
   );

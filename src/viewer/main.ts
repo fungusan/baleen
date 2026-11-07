@@ -6,6 +6,8 @@ import './viewer.css';
 GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf/pdf.worker.min.mjs');
 
 const MAX_TEXT = 12000;
+const MAX_PAGE_TEXTS = 60;
+const MAX_PAGE_TEXT = 20000;
 
 interface PageEntry {
   page: PDFPageProxy;
@@ -164,22 +166,35 @@ function setZoom(next: number) {
   void rebuild();
 }
 
-/** Whole-document text for Study, extracted once and capped to the request limit. */
+/**
+ * Whole-document text for Study, plus per-page text for the reading chat's passage search. Pages
+ * are extracted before the reader scrolls to them, so later pages are already available to a
+ * question.
+ */
 function shareText(target: PDFDocumentProxy) {
   void (async () => {
     let text = '';
-    for (let number = 1; number <= target.numPages && text.length < MAX_TEXT; number += 1) {
+    const texts = new Array<string>(target.numPages).fill('');
+    const last = Math.min(target.numPages, MAX_PAGE_TEXTS);
+    for (let number = 1; number <= last; number += 1) {
       const page = await target.getPage(number);
       const content = await page.getTextContent();
+      let pageText = '';
       for (const item of content.items) {
         if (!('str' in item) || typeof item.str !== 'string') continue;
-        text += item.str;
-        if (item.hasEOL) text += '\n';
+        pageText += item.str;
+        if (item.hasEOL) pageText += '\n';
       }
-      text += '\n\n';
+      const kept = pageText.slice(0, MAX_PAGE_TEXT);
+      texts[number - 1] = kept;
+      if (text.length < MAX_TEXT) text += `${kept}\n\n`;
     }
-    (globalThis as { __baleenPagePassage?: string }).__baleenPagePassage =
-      text.slice(0, MAX_TEXT);
+    const shared = globalThis as {
+      __baleenPagePassage?: string;
+      __baleenPageTexts?: string[];
+    };
+    shared.__baleenPagePassage = text.slice(0, MAX_TEXT);
+    shared.__baleenPageTexts = texts;
   })().catch(() => undefined);
 }
 

@@ -1,7 +1,10 @@
 import { characterCSS, createCharacter } from './render/compositor';
 import { renderMarkdown } from './render/markdown';
 import { captureSection, pagePassage, requestAsk, type SectionCapture } from './ask';
-import { characterById } from '../shared/characters';
+import { findPassages } from './retrieve';
+import { asksToRemember, notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
+import { asksAboutBaleen } from '../shared/help';
+import { characterById, characterForModel } from '../shared/characters';
 import { DEEPSEEK_MODELS, DEEPSEEK_MODEL_LABELS } from '../shared/types';
 import type {
   ChatTurn,
@@ -35,7 +38,7 @@ export function clearStaleHosts() {
     stale.remove();
 }
 
-/** Formatting shared by chat answers and the Study panel; the alias falls back across both palettes. */
+/** Formatting shared by chat answers and Study results; the alias falls back across both palettes. */
 const MARKDOWN_CSS = `
   .markdown {
     --md-ink:var(--ink, var(--fg-ink)); --md-sunken:var(--sunken, var(--fg-sunken));
@@ -128,6 +131,7 @@ const CHAT_CSS = `
   .wrap.collapsed .color,
   .wrap.collapsed .palette,
   .wrap.collapsed .thread,
+  .wrap.collapsed .process,
   .wrap.collapsed .note,
   .wrap.collapsed .form,
   .wrap.collapsed .foot,
@@ -146,7 +150,22 @@ const CHAT_CSS = `
   .msg-user { align-self:flex-end; max-width:86%; padding:6px 10px; border-radius:10px; background:color-mix(in srgb, var(--section, var(--accent)) 12%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--section, var(--accent)) 28%, transparent); color:var(--ink); font:12px/1.55 var(--sans); white-space:pre-wrap; overflow-wrap:anywhere; }
   .msg-assistant { align-self:stretch; color:var(--ink); font:12.5px/1.7 var(--sans); overflow-wrap:anywhere; }
   .msg-assistant[data-kind] { white-space:pre-wrap; font:11.5px/1.6 var(--sans); }
-  .msg-assistant[data-kind="pending"] { color:var(--muted); }
+  /* Work in progress has its own bubble between the thread and the composer, never a message. */
+  .process {
+    display:flex; align-items:center; gap:6px; align-self:flex-start;
+    max-width:calc(100% - 26px); margin:0 14px 6px 12px; padding:5px 9px;
+    border:1px solid var(--line); border-radius:10px;
+    background:var(--sunken); color:var(--muted); font:11.5px/1.6 var(--sans);
+  }
+  .process[hidden] { display:none!important; }
+  .process::before {
+    content:""; flex:none; width:5px; height:5px; border-radius:50%;
+    background:var(--section, var(--accent)); animation:fg-think 1.2s ease-in-out infinite;
+  }
+  @keyframes fg-think { 0%,100%{opacity:.35} 50%{opacity:1} }
+  @media (prefers-reduced-motion:reduce) {
+    .process::before { animation:none; }
+  }
   .msg-assistant[data-kind="error"] { color:var(--danger); font-size:10.5px; }
   .msg-assistant.markdown h1,.msg-assistant.markdown h2,.msg-assistant.markdown h3,
   .msg-assistant.markdown h4,.msg-assistant.markdown h5,.msg-assistant.markdown h6 {
@@ -277,7 +296,7 @@ function highlightColor(value: unknown): HighlightColor | null {
 interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
-  kind?: 'pending' | 'error';
+  kind?: 'error';
   /** DeepSeek's chain of thought, only for answers asked with thinking enabled. */
   reasoning?: string;
   /** Milliseconds spent waiting on an answer that came with reasoning. */
@@ -339,6 +358,8 @@ interface ChatBlock {
   input: HTMLTextAreaElement;
   send: HTMLButtonElement;
   thread: HTMLDivElement;
+  /** Work-in-progress bubble; sits between the thread and the composer, never in the transcript. */
+  progress: HTMLDivElement;
   wrap: HTMLDivElement;
   usage: HTMLSpanElement;
   copy: HTMLButtonElement;
@@ -552,31 +573,12 @@ function applyTheme(element: Element, theme: Theme) {
   else element.setAttribute('data-theme', theme);
 }
 
-function downloadText(name: string, text: string): boolean {
-  try {
-    const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.rel = 'noopener';
-    link.style.display = 'none';
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    return true;
-  } catch {
-    return false;
-  }
-}
 export function createHost(
   initial: Settings,
   actions: {
     hide(): void;
     position(value: Position): void;
     model(value: DeepSeekModel): void;
-    animate(value: boolean): void;
-    scale(value: number): void;
   },
 ) {
   const element = document.createElement('div');
@@ -607,26 +609,18 @@ export function createHost(
     }
     .companion[data-theme="light"] { color-scheme:light; }
     .companion[data-theme="dark"] { color-scheme:dark; }
-    /* Display off hides the character and her own menus, not the inline chat surfaces that live
+    /* Display off hides the character and her own chat, not the inline chat surfaces that live
        outside this wrapper: selections, the Ask chip, and open section windows keep working. */
     .companion[data-hidden="true"] .fg-character,
     .companion[data-hidden="true"] .grip,
-    .companion[data-hidden="true"] .controls,
-    .companion[data-hidden="true"] .fg-panel,
-    .companion[data-hidden="true"] .say { display:none!important; }
+    .companion[data-hidden="true"] .say,
+    .companion[data-hidden="true"] .process { display:none!important; }
     button { font:inherit; color:inherit; cursor:pointer; border:0; }
     button:focus-visible { outline:2px solid var(--fg-accent); outline-offset:2px; }
     .grip { position:absolute; inset:0; width:100%; height:100%; background:transparent; pointer-events:auto; cursor:grab; touch-action:none; border-radius:12px; }
     .grip:active { cursor:grabbing; } .grip:focus-visible { outline:2px solid var(--fg-accent); outline-offset:3px; }
     .fg-emote { background:var(--fg-glass); color:var(--fg-ink); box-shadow:0 2px 8px rgba(0,0,0,.13); }
-    .controls { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); display:flex; gap:2px; padding:3px; border:1px solid var(--fg-line); border-radius:8px; background:var(--fg-glass); box-shadow:var(--fg-soft-shadow); backdrop-filter:blur(8px); opacity:0; pointer-events:none; }
-    .companion:hover .controls,.companion:focus-within .controls,.companion.panel-open .controls { opacity:1; pointer-events:auto; }
-    .controls button { display:flex; align-items:center; gap:5px; padding:5px 8px; border-radius:3px; color:var(--fg-body); white-space:nowrap; font:600 10px/1.5 var(--fg-sans); letter-spacing:.06em; text-transform:uppercase; transition:background .15s,color .15s; }
-    .controls button:hover,.controls button:focus-visible { background:var(--fg-sunken); color:var(--fg-ink); }
-    .controls button[hidden],.fg-panel[hidden],.mini[hidden],.ask-highlight span[hidden] { display:none!important; }
-    .fg-panel { position:absolute; right:calc(100% + 10px); bottom:0; width:280px; max-height:min(62vh,460px); overflow:auto; border:1px solid var(--fg-line); border-radius:6px; background:var(--fg-bg); box-shadow:var(--fg-shadow); pointer-events:auto; scrollbar-width:thin; }
-    .companion.flip .fg-panel { right:auto; left:calc(100% + 10px); }
-    .companion.below .fg-panel { top:calc(100% + 8px); bottom:auto; }
+    .ask-highlight span[hidden] { display:none!important; }
     /* Her reading chat is one speech bubble over her head, never a chat window. Clicking her opens
        an obvious little field; once she answers, the field gives way to her sentence for a few
        seconds before the bubble leaves, so a reply is spoken once and not replayed later. */
@@ -638,6 +632,8 @@ export function createHost(
     }
     .say[hidden] { display:none!important; }
     .say[data-leaving="true"] { opacity:0; pointer-events:none; }
+    /* During a turn the bubble is only an anchor; the process bubble beside it carries the words. */
+    .say[data-mode="process"] { visibility:hidden; }
     .say[data-mode="reply"] {
       display:flex; align-items:center; padding:6px 10px;
       border:1px solid var(--fg-accent-line); border-radius:14px;
@@ -661,8 +657,39 @@ export function createHost(
       white-space:pre-wrap; overflow-wrap:anywhere; cursor:text;
     }
     .say-reply[hidden],.say-form[hidden] { display:none!important; }
-    .say-reply[data-kind="pending"] { color:var(--fg-faint); cursor:default; }
     .say-reply[data-kind="error"] { color:var(--fg-danger); }
+    /* While she works, this bubble sits where her sentence will appear; her own bubble stays an
+       empty, invisible anchor so opening and closing it keeps working. */
+    .process {
+      position:absolute; bottom:calc(100% + 10px); left:50%;
+      transform:translateX(calc(-50% + var(--say-shift, 0px)));
+      display:flex; align-items:center; gap:6px;
+      width:max-content; max-width:min(260px, calc(100vw - 20px));
+      padding:6px 10px; border:1px solid var(--fg-line); border-radius:14px;
+      background:var(--fg-bg); box-shadow:var(--fg-soft-shadow);
+      color:var(--fg-muted); font:500 12.5px/1.5 var(--fg-cute);
+      pointer-events:none;
+    }
+    .process[hidden] { display:none!important; }
+    .process::before {
+      content:""; flex:none; width:5px; height:5px; border-radius:50%;
+      background:var(--fg-accent); animation:fg-say-think 1.2s ease-in-out infinite;
+    }
+    .process::after {
+      content:""; position:absolute; bottom:-5px; left:calc(50% - var(--say-shift, 0px));
+      width:9px; height:9px; border-right:1px solid var(--fg-line);
+      border-bottom:1px solid var(--fg-line); border-bottom-right-radius:2px;
+      background:var(--fg-bg); transform:translateX(-50%) rotate(45deg);
+    }
+    .companion.below .process { top:calc(100% + 10px); bottom:auto; }
+    .companion.below .process::after {
+      top:-5px; bottom:auto; border:0; border-top:1px solid var(--fg-line);
+      border-left:1px solid var(--fg-line); border-radius:0; border-top-left-radius:2px;
+    }
+    @keyframes fg-say-think { 0%,100%{opacity:.35} 50%{opacity:1} }
+    @media (prefers-reduced-motion:reduce) {
+      .process::before { animation:none; }
+    }
     /* The field matches the section chat's composer: a hairline box on a sunken fill, with no
        decorative pen and no send button. Enter sends. */
     .say-form {
@@ -675,57 +702,16 @@ export function createHost(
     .say-input { flex:1 1 auto; width:0; min-width:0; height:22px; padding:0; border:0; background:transparent; color:var(--fg-ink); font:12px/1.4 var(--fg-sans); }
     .say-input::placeholder { color:var(--fg-faint); }
     .say-input:focus-visible { outline:none; }
-    .menu-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px 6px; }
-    .menu-title { color:var(--fg-muted); font:600 10px/1.4 var(--fg-sans); letter-spacing:.12em; text-transform:uppercase; }
-    .menu-close { display:flex; align-items:center; justify-content:center; flex:none; width:18px; height:18px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:transparent; color:var(--fg-muted); font:13px/1 var(--fg-sans); transition:background .15s,border-color .15s,color .15s; }
-    .menu-close:hover,.menu-close:focus-visible { background:var(--fg-sunken); border-color:var(--fg-stone); color:var(--fg-ink); }
-    .study-body { padding:0; }
-    .menu-note { margin:0; padding:0 10px 7px; color:var(--fg-muted); font:9.5px/1.5 var(--fg-sans); }
-    .menu-section { border-top:1px solid var(--fg-line); }
-    .menu-label { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:6px 10px 2px; color:var(--fg-faint); font:600 9.5px/1.4 var(--fg-sans); letter-spacing:.1em; text-transform:uppercase; }
-    .menu-count { color:var(--fg-muted); font:10px/1.4 var(--fg-sans); letter-spacing:.02em; text-transform:none; }
-    .menu-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 10px; }
-    .menu-row + .menu-row { border-top:1px solid var(--fg-line); }
-    .menu-row-label { color:var(--fg-body); font-size:10px; }
-    .slider-row { padding:0 10px 8px; }
-    .slider { width:100%; height:14px; margin:0; cursor:pointer; background:transparent; -webkit-appearance:none; appearance:none; }
-    .slider::-webkit-slider-runnable-track { height:2px; border-radius:999px; background:linear-gradient(to right,var(--fg-accent) var(--fill,40%),var(--fg-stone) var(--fill,40%)); }
-    .slider::-webkit-slider-thumb { width:10px; height:10px; margin-top:-4px; background:var(--fg-bg); border:2px solid var(--fg-accent); border-radius:2px; -webkit-appearance:none; appearance:none; }
-    .slider:focus-visible { outline:2px solid var(--fg-accent); outline-offset:3px; }
-    .switch { position:relative; flex:none; width:30px; height:17px; padding:0; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-stone); transition:background .15s,border-color .15s; }
-    .switch::after { content:""; position:absolute; top:2px; left:2px; width:11px; height:11px; border-radius:2px; background:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,.22); transition:transform .15s; }
-    .switch[aria-checked="true"] { background:var(--fg-accent); border-color:var(--fg-accent); }
-    .switch[aria-checked="true"]::after { transform:translateX(13px); }
-    .action-row { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:1px 10px 8px; }
-    .action { padding:5px 6px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); color:var(--fg-body); font:10px/1.4 var(--fg-sans); text-align:center; white-space:nowrap; transition:background .15s,border-color .15s,color .15s; }
-    .action:hover:not(:disabled),.action:focus-visible { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
-    .action[data-active="true"] { background:var(--fg-accent-soft); border-color:var(--fg-accent-line); color:var(--fg-ink); }
-    .action:disabled { opacity:.4; cursor:default; }
-    .seg { display:inline-flex; gap:2px; padding:2px; border:1px solid var(--fg-line); border-radius:3px; background:var(--fg-sunken); }
-    .seg button { padding:3px 8px; border-radius:2px; color:var(--fg-muted); font:10px/1.4 var(--fg-sans); white-space:nowrap; transition:background .15s,color .15s; }
-    .seg button:hover:not(:disabled) { background:var(--fg-bg); color:var(--fg-ink); }
-    .seg button[aria-pressed="true"] { background:var(--fg-accent-soft); color:var(--fg-ink); box-shadow:inset 0 0 0 1px var(--fg-accent-line); }
-    .seg button:disabled { opacity:.5; cursor:default; }
-    .study-result { max-height:150px; overflow:auto; margin:0; padding:9px 10px; border-top:1px solid var(--fg-line); white-space:pre-wrap; overflow-wrap:anywhere; color:var(--fg-body); font-size:11.5px; line-height:1.6; scrollbar-width:thin; }
-    .study-result:empty { display:none; }
-    .study-result[data-busy="true"] { color:var(--fg-accent); font:10.5px/1.5 var(--fg-sans); }
-    .study-result.error { color:var(--fg-danger); }
-    .study-foot { display:flex; align-items:center; gap:8px; padding:7px 10px; border-top:1px solid var(--fg-line); }
-    .study-foot:not(:has(.usage:not(:empty))) { display:none; }
-    .study-foot .usage { flex:1; color:var(--fg-faint); font:9px/1.5 var(--fg-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .mini { flex:none; padding:3px 8px; border:1px solid var(--fg-accent-line); border-radius:3px; background:var(--fg-accent-soft); color:var(--fg-ink); font:9.5px/1.4 var(--fg-sans); transition:background .15s,border-color .15s; }
-    .mini:hover,.mini:focus-visible { background:rgba(132,159,93,.16); border-color:var(--fg-accent); }
     /* Bands sit in document coordinates, so the page scrolls them natively with the text. Fixed
        positioning repainted on scroll trailed the compositor by a frame and read as drift. */
     .ask-highlight { position:absolute; top:0; left:0; pointer-events:none; }
     .ask-highlight span { position:absolute; border-radius:3px; background:var(--band-fill,rgba(132,159,93,.16)); box-shadow:inset 0 0 0 1px var(--band-line,rgba(132,159,93,.45)); }
     .ask-highlight span[data-media="true"] { background:var(--band-media,rgba(132,159,93,.1)); box-shadow:inset 0 0 0 2px var(--band-line,rgba(132,159,93,.8)); }
-    @media (max-width:820px) { .fg-panel,.companion.flip .fg-panel,.companion.below .fg-panel { position:fixed; inset:auto 10px 10px; width:auto; max-height:60vh; } }
     ${MARKDOWN_CSS}
   `;
   const wrapper = document.createElement('div');
   wrapper.className = 'companion';
-  const character = createCharacter(initial.character);
+  const character = createCharacter(characterForModel(initial.model));
   const grip = document.createElement('button');
   grip.className = 'grip';
   grip.setAttribute(
@@ -733,183 +719,6 @@ export function createHost(
     'Baleen. Click to talk with her about the page; drag or use arrow keys to move.',
   );
   grip.title = 'Click to talk · drag to move';
-  const controls = document.createElement('div');
-  controls.className = 'controls';
-  const studyButton = document.createElement('button');
-  studyButton.type = 'button';
-  studyButton.title = 'Keywords or a whole-page summary with Baleen';
-  studyButton.textContent = 'Study';
-  studyButton.setAttribute('aria-expanded', 'false');
-  studyButton.setAttribute('aria-controls', 'fg-study');
-  const characterButton = document.createElement('button');
-  characterButton.type = 'button';
-  characterButton.title = 'Size, animation, and visibility';
-  characterButton.textContent = 'Character';
-  characterButton.setAttribute('aria-expanded', 'false');
-  characterButton.setAttribute('aria-controls', 'fg-character');
-  controls.append(studyButton, characterButton);
-  const studyPanel = document.createElement('div');
-  studyPanel.id = 'fg-study';
-  studyPanel.className = 'fg-panel study-panel';
-  studyPanel.hidden = true;
-  studyPanel.setAttribute('role', 'region');
-  studyPanel.setAttribute('aria-label', 'Study with Baleen');
-  const studyHead = document.createElement('div');
-  studyHead.className = 'menu-head';
-  const studyTitle = document.createElement('span');
-  studyTitle.className = 'menu-title';
-  studyTitle.textContent = 'Study';
-  const studyClose = document.createElement('button');
-  studyClose.type = 'button';
-  studyClose.className = 'menu-close';
-  studyClose.textContent = '×';
-  studyClose.setAttribute('aria-label', 'Close study');
-  const studyBody = document.createElement('div');
-  studyBody.className = 'study-body';
-  const studySource = document.createElement('p');
-  studySource.className = 'menu-note';
-  // Size is the first control: she ships in one fixed outfit.
-  const sizeSection = document.createElement('div');
-  sizeSection.className = 'menu-section';
-  const sizeLabel = document.createElement('span');
-  sizeLabel.className = 'menu-label';
-  const sizeName = document.createElement('span');
-  sizeName.textContent = 'Size';
-  const sizeValue = document.createElement('span');
-  sizeValue.className = 'menu-count';
-  sizeLabel.append(sizeName, sizeValue);
-  const sizeRow = document.createElement('div');
-  sizeRow.className = 'slider-row';
-  const sizeInput = document.createElement('input');
-  sizeInput.type = 'range';
-  sizeInput.className = 'slider';
-  sizeInput.min = '0.6';
-  sizeInput.max = '1.6';
-  sizeInput.step = '0.1';
-  sizeInput.value = '1';
-  sizeInput.setAttribute('aria-label', 'Companion size');
-  sizeRow.append(sizeInput);
-  sizeSection.append(sizeLabel, sizeRow);
-  function paintSize(scale: number) {
-    sizeInput.style.setProperty('--fill', `${((scale - 0.6) / 1) * 100}%`);
-    sizeValue.textContent = `${Math.round(scale * 100)}%`;
-  }
-  sizeInput.oninput = () => {
-    const scale = Number(sizeInput.value);
-    paintSize(scale);
-    current = { ...current, scale };
-    resize(scale);
-  };
-  sizeInput.onchange = () => actions.scale(Number(sizeInput.value));
-  const actionsSection = document.createElement('div');
-  actionsSection.className = 'menu-section';
-  const actionsLabel = document.createElement('span');
-  actionsLabel.className = 'menu-label';
-  actionsLabel.textContent = 'Actions';
-  const actionsList = document.createElement('div');
-  actionsList.className = 'action-row';
-  const studyActions: HTMLButtonElement[] = [];
-  for (const [action, name, hint] of [
-    ['keywords', 'Keywords', 'Pull 5\u20138 key terms'],
-    ['summarize', 'Summarize', 'Condense the whole page'],
-  ] as const) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'action';
-    button.textContent = name;
-    button.title = hint;
-    button.onclick = () => void runAsk(action);
-    studyActions.push(button);
-    actionsList.append(button);
-  }
-  actionsSection.append(actionsLabel, actionsList);
-  const studyResult = document.createElement('div');
-  studyResult.className = 'study-result';
-  studyResult.setAttribute('role', 'status');
-  studyResult.setAttribute('aria-live', 'polite');
-  const sessionSection = document.createElement('div');
-  sessionSection.className = 'menu-section';
-  const sessionLabel = document.createElement('span');
-  sessionLabel.className = 'menu-label';
-  const sessionName = document.createElement('span');
-  sessionName.textContent = 'Session';
-  const sessionCount = document.createElement('span');
-  sessionCount.className = 'menu-count';
-  sessionLabel.append(sessionName, sessionCount);
-  const sessionRow = document.createElement('div');
-  sessionRow.className = 'action-row';
-  const exportChats = document.createElement('button');
-  exportChats.type = 'button';
-  exportChats.className = 'action';
-  exportChats.textContent = 'Export chats';
-  exportChats.onclick = () => exportChatHistory(sessionCount);
-  const closeChats = document.createElement('button');
-  closeChats.type = 'button';
-  closeChats.className = 'action';
-  closeChats.textContent = 'Close all chats';
-  closeChats.onclick = closeAllChats;
-  sessionRow.append(exportChats, closeChats);
-  sessionSection.append(sessionLabel, sessionRow);
-  const studyFoot = document.createElement('div');
-  studyFoot.className = 'study-foot';
-  const usage = document.createElement('span');
-  usage.className = 'usage';
-  const copyReply = document.createElement('button');
-  copyReply.type = 'button';
-  copyReply.className = 'mini';
-  copyReply.textContent = 'Copy';
-  copyReply.hidden = true;
-  copyReply.onclick = () => void copyValue(studied, copyReply, 'Copy');
-  studyFoot.append(usage, copyReply);
-  studyBody.append(studySource, actionsSection, studyResult, studyFoot, sessionSection);
-  studyHead.append(studyTitle, studyClose);
-  studyPanel.append(studyHead, studyBody);
-  const characterPanel = document.createElement('div');
-  characterPanel.id = 'fg-character';
-  characterPanel.className = 'fg-panel';
-  characterPanel.hidden = true;
-  characterPanel.setAttribute('role', 'region');
-  characterPanel.setAttribute('aria-label', 'Character settings');
-  const characterHead = document.createElement('div');
-  characterHead.className = 'menu-head';
-  const characterTitle = document.createElement('span');
-  characterTitle.className = 'menu-title';
-  characterTitle.textContent = 'Character';
-  const characterClose = document.createElement('button');
-  characterClose.type = 'button';
-  characterClose.className = 'menu-close';
-  characterClose.textContent = '×';
-  characterClose.setAttribute('aria-label', 'Close character');
-  const characterBody = document.createElement('div');
-  characterBody.className = 'study-body';
-  function menuSwitch(label: string, hint: string) {
-    const row = document.createElement('div');
-    row.className = 'menu-row';
-    const name = document.createElement('span');
-    name.className = 'menu-row-label';
-    name.textContent = label;
-    const control = document.createElement('button');
-    control.type = 'button';
-    control.className = 'switch';
-    control.setAttribute('role', 'switch');
-    control.setAttribute('aria-checked', 'true');
-    control.setAttribute('aria-label', label);
-    control.title = hint;
-    row.append(name, control);
-    return { row, control };
-  }
-  const animateSwitch = menuSwitch('Animate', 'Play her idle sway and reactions');
-  const shownSwitch = menuSwitch('Show on pages', 'Turn off to hide her on every page');
-  const characterSettings = document.createElement('div');
-  characterSettings.className = 'menu-section';
-  characterSettings.append(animateSwitch.row, shownSwitch.row);
-  const characterNote = document.createElement('p');
-  characterNote.className = 'menu-note';
-  characterNote.textContent =
-    'Turning display off hides her everywhere. Inline chat stays on. Bring her back from the extension menu or Alt/Option+Shift+G.';
-  characterBody.append(sizeSection, characterSettings, characterNote);
-  characterHead.append(characterTitle, characterClose);
-  characterPanel.append(characterHead, characterBody);
   const say = document.createElement('div');
   say.className = 'say';
   say.hidden = true;
@@ -919,7 +728,11 @@ export function createHost(
   sayReply.type = 'button';
   sayReply.className = 'say-reply';
   sayReply.hidden = true;
-  sayReply.title = 'Click to reply';
+  const processBubble = document.createElement('div');
+  processBubble.className = 'process';
+  processBubble.hidden = true;
+  processBubble.setAttribute('role', 'status');
+  processBubble.setAttribute('aria-live', 'polite');
   const talkForm = document.createElement('form');
   talkForm.className = 'say-form';
   const talkInput = document.createElement('input');
@@ -930,36 +743,11 @@ export function createHost(
   talkInput.autocomplete = 'off';
   talkForm.append(talkInput);
   say.append(sayReply, talkForm);
-  animateSwitch.control.onclick = () => {
-    const animate = animateSwitch.control.getAttribute('aria-checked') !== 'true';
-    animateSwitch.control.setAttribute('aria-checked', String(animate));
-    character.setAnimated(animate);
-    current = { ...current, animate };
-    actions.animate(animate);
-  };
-  shownSwitch.control.onclick = () => {
-    if (shownSwitch.control.getAttribute('aria-checked') !== 'true') return;
-    shownSwitch.control.setAttribute('aria-checked', 'false');
-    actions.hide();
-  };
-  /** Every surface writes the same settings, so the menu reflects changes made in the popup. */
-  function syncCharacterPanel(value: Settings) {
-    paintSize(value.scale);
-    if (document.activeElement !== sizeInput) sizeInput.value = String(value.scale);
-    animateSwitch.control.setAttribute('aria-checked', String(value.animate));
-    animateSwitch.control.title = value.animate
-      ? 'Turn off to hold her still'
-      : 'Turn on to play her idle sway and reactions';
-    shownSwitch.control.setAttribute('aria-checked', String(!value.hidden));
-    shownSwitch.control.title = value.hidden
-      ? 'Hidden on every page. Turn this on to bring her back.'
-      : 'Turn off to hide her on every page';
-  }
   const highlightLayer = document.createElement('div');
   highlightLayer.className = 'ask-highlight';
   highlightLayer.setAttribute('aria-hidden', 'true');
   const highlightBoxes: HTMLSpanElement[] = [];
-  wrapper.append(character.element, grip, controls, studyPanel, characterPanel, say);
+  wrapper.append(character.element, grip, say, processBubble);
   // The highlight layer lives outside the fixed card: the card stays pinned to the viewport, while
   // the bands are positioned against the document so scrolling moves them with the words.
   shadow.append(style, highlightLayer, wrapper);
@@ -978,8 +766,6 @@ export function createHost(
     originY: number;
     moved: boolean;
   } | null = null;
-  let studied = '';
-  let busy = false;
   let modelChoice: DeepSeekModel = initial.model;
   let blocks: ChatBlock[] = [];
   let talkMessages: ChatMessage[] = [];
@@ -1059,7 +845,7 @@ export function createHost(
   function syncModels() {
     for (const block of blocks) {
       block.model.sync();
-      for (const button of block.model.buttons) button.disabled = busy || block.busy;
+      for (const button of block.model.buttons) button.disabled = block.busy;
     }
   }
   function focusedBlock(): ChatBlock | null {
@@ -1074,47 +860,25 @@ export function createHost(
     syncModels();
     actions.model(next);
   }
-  function syncOpenClass() {
-    wrapper.classList.toggle(
-      'panel-open',
-      !studyPanel.hidden || !characterPanel.hidden || !say.hidden,
-    );
-  }
-  function closeStudy() {
-    studyPanel.hidden = true;
-    studyButton.setAttribute('aria-expanded', 'false');
-    syncOpenClass();
-  }
-  function closeCharacter() {
-    characterPanel.hidden = true;
-    characterButton.setAttribute('aria-expanded', 'false');
-    syncOpenClass();
-  }
   function closeTalk() {
     stopSayHide();
+    hideProcess();
     if (say.hidden) return;
     say.hidden = true;
-    syncOpenClass();
     settleLook();
   }
+  /** Keep the bubble above her unless there is more room below. */
   function fitPanel() {
-    const narrow = innerWidth <= 820;
-    const roomLeft = x - 16;
-    const roomRight = innerWidth - width - x - 16;
-    wrapper.classList.toggle('flip', !narrow && roomLeft < 320 && roomRight > roomLeft);
     const below = y + height / 2 < innerHeight / 2;
     wrapper.classList.toggle('below', below);
-    const room = below ? innerHeight - y - height - 16 : y - 16;
-    const heightLimit = narrow ? '60vh' : `${Math.max(180, Math.min(460, room))}px`;
-    studyPanel.style.maxHeight = heightLimit;
-    characterPanel.style.maxHeight = heightLimit;
     placeTalk();
   }
   /** Keep her whole speech bubble on screen; the tail follows the shift to stay on her head. */
   function placeTalk() {
-    if (say.hidden) return;
-    say.style.setProperty('--say-shift', '0px');
-    const pill = say.getBoundingClientRect();
+    const bubble = processBubble.hidden ? say : processBubble;
+    if (bubble.hidden) return;
+    bubble.style.setProperty('--say-shift', '0px');
+    const pill = bubble.getBoundingClientRect();
     const room = 8;
     const shift =
       pill.left < room
@@ -1122,113 +886,12 @@ export function createHost(
         : pill.right > innerWidth - room
           ? innerWidth - room - pill.right
           : 0;
-    say.style.setProperty('--say-shift', `${Math.round(shift)}px`);
-  }
-  function studySourceFor(): { text: string; label: string } | null {
-    const text = pagePassage();
-    if (!text) return null;
-    const words = text.split(/\s+/).filter(Boolean).length;
-    return { text, label: `Whole page \u00b7 ${words.toLocaleString()} words` };
-  }
-  function syncStudyButtons() {
-    const source = studySourceFor();
-    studySource.textContent = source ? source.label : 'This page has no readable text.';
-    for (const button of studyActions) button.disabled = busy || !source;
-    const asked =
-      blocks.some((block) => block.messages.some((message) => message.role === 'user')) ||
-      talkMessages.some((message) => message.role === 'user');
-    exportChats.disabled = !asked;
-    exportChats.title = asked ? 'Download this session as Markdown' : 'No questions yet';
-    closeChats.disabled = !blocks.length;
-    closeChats.title = blocks.length
-      ? blocks.length === 1
-        ? 'Remove the open block'
-        : `Remove all ${blocks.length} open blocks`
-      : 'No open blocks';
-    sessionCount.textContent = blocks.length
-      ? `${blocks.length} ${blocks.length === 1 ? 'chat' : 'chats'}`
-      : 'none';
-    syncModels();
-  }
-  function setResult(text: string, error = false) {
-    studyResult.classList.remove('markdown');
-    studyResult.classList.toggle('error', error);
-    studyResult.textContent = text;
-  }
-  function setAnswer(text: string) {
-    studyResult.classList.remove('error');
-    studyResult.classList.add('markdown');
-    studyResult.replaceChildren(renderMarkdown(text));
+    bubble.style.setProperty('--say-shift', `${Math.round(shift)}px`);
   }
   function formatUsage(usage?: { input: number; output: number }) {
     return usage
       ? `${usage.input.toLocaleString()} in \u00b7 ${usage.output.toLocaleString()} out`
       : '';
-  }
-  async function runAsk(action: 'keywords' | 'summarize') {
-    if (busy) return;
-    const source = studySourceFor();
-    if (!source) return;
-    busy = true;
-    studied = '';
-    studySource.textContent = source.label;
-    setResult('Thinking\u2026');
-    studyResult.dataset.busy = 'true';
-    usage.textContent = '';
-    copyReply.hidden = true;
-    const active = action === 'keywords' ? studyActions[0] : studyActions[1];
-    active.dataset.active = 'true';
-    syncStudyButtons();
-    look('thinking');
-    try {
-      const answer = await requestAsk({
-        action,
-        model: modelChoice,
-        text: source.text,
-        title: document.title,
-      });
-      studied = answer.text;
-      delete studyResult.dataset.busy;
-      setAnswer(answer.text);
-      usage.textContent = formatUsage(answer.usage);
-      copyReply.hidden = false;
-      deliver('happy');
-    } catch (error) {
-      delete studyResult.dataset.busy;
-      setResult(error instanceof Error ? error.message : 'Baleen did not answer.', true);
-      deliver('sad');
-    } finally {
-      busy = false;
-      delete active.dataset.active;
-      syncStudyButtons();
-      fitPanel();
-    }
-  }
-  function openStudy() {
-    closeCharacter();
-    closeTalk();
-    studyPanel.hidden = false;
-    studyButton.setAttribute('aria-expanded', 'true');
-    syncOpenClass();
-    fitPanel();
-    syncStudyButtons();
-  }
-  function toggleStudy() {
-    if (studyPanel.hidden) openStudy();
-    else closeStudy();
-  }
-  function openCharacter() {
-    closeStudy();
-    closeTalk();
-    characterPanel.hidden = false;
-    characterButton.setAttribute('aria-expanded', 'true');
-    syncOpenClass();
-    fitPanel();
-    syncCharacterPanel(current);
-  }
-  function toggleCharacter() {
-    if (characterPanel.hidden) openCharacter();
-    else closeCharacter();
   }
   function lastReply(): ChatMessage | undefined {
     for (let index = talkMessages.length - 1; index >= 0; index -= 1)
@@ -1238,17 +901,28 @@ export function createHost(
   /** One pill: the input before she speaks, her sentence after; history stays out of sight. */
   function renderTalk() {
     const reply = talkMode === 'reply' ? lastReply() : undefined;
-    say.dataset.mode = reply ? 'reply' : 'ask';
-    talkForm.hidden = !!reply;
-    sayReply.hidden = !reply;
-    if (reply) {
+    say.dataset.mode = talkBusy ? 'process' : reply ? 'reply' : 'ask';
+    talkForm.hidden = talkBusy || !!reply;
+    sayReply.hidden = talkBusy || !reply;
+    if (reply && !talkBusy) {
       sayReply.textContent = reply.text;
       if (reply.kind) sayReply.dataset.kind = reply.kind;
       else delete sayReply.dataset.kind;
-      sayReply.disabled = reply.kind === 'pending';
-      sayReply.title = reply.kind === 'pending' ? 'Thinking\u2026' : 'Click to reply';
+      sayReply.disabled = false;
     }
     placeTalk();
+  }
+  /** The process bubble is its own speech bubble; it never doubles as a chat message. */
+  function showProcess(label: string) {
+    // Keep the label current even while the surface is closed, so reopening shows the latest step.
+    processBubble.textContent = label;
+    if (say.hidden) return;
+    processBubble.hidden = false;
+    placeTalk();
+  }
+  function hideProcess() {
+    processBubble.hidden = true;
+    processBubble.textContent = '';
   }
   /** Her answer is spoken once: after a few seconds the bubble fades and leaves. */
   function stopSayHide() {
@@ -1278,7 +952,8 @@ export function createHost(
         if ((item.role !== 'user' && item.role !== 'assistant') || typeof item.text !== 'string')
           continue;
         const text = item.text.trim();
-        if (!text || item.kind === 'pending') continue;
+        // Older builds stored a "pending" placeholder in the transcript; drop it.
+        if (!text || String(item.kind) === 'pending') continue;
         messages.push({
           role: item.role,
           text: text.slice(0, 8000),
@@ -1300,28 +975,35 @@ export function createHost(
     }
   }
   function openTalk() {
-    closeStudy();
-    closeCharacter();
     say.hidden = false;
     stopSayHide();
     // Her last sentence was said once; clicking her opens the field, never a replay of it.
     talkMode = talkBusy ? 'reply' : 'ask';
-    syncOpenClass();
     fitPanel();
     renderTalk();
-    if (talkMode === 'ask') talkInput.focus({ preventScroll: true });
-    look('listen');
+    if (talkBusy) showProcess(processBubble.textContent || 'Thinking\u2026');
+    else {
+      talkInput.focus({ preventScroll: true });
+      look('listen');
+    }
   }
   function toggleTalk() {
-    if (say.hidden) openTalk();
+    if (say.hidden && processBubble.hidden) openTalk();
     else closeTalk();
   }
   async function sendTalk() {
     if (talkBusy) return;
     const prompt = talkInput.value.trim();
     if (!prompt) return;
-    const text = pagePassage().trim().slice(0, 6000);
-    if (!text) {
+    // A question about Baleen herself is answered from the built-in reference, not the page, so it
+    // also works on pages with no readable text. Other messages carry only their matching passages.
+    const currentHelp = asksAboutBaleen(prompt);
+    const lastUser = talkMessages
+      .filter((message) => message.role === 'user' && !message.kind)
+      .pop();
+    const help = currentHelp || asksAboutBaleen(lastUser?.text);
+    const passages = currentHelp ? '' : findPassages(prompt);
+    if (!passages && !help) {
       talkMessages.push({
         role: 'assistant',
         text: 'This page has no readable text to talk about.',
@@ -1341,35 +1023,41 @@ export function createHost(
     const token = ++talkToken;
     talkInput.value = '';
     talkMessages.push({ role: 'user', text: prompt });
-    talkMessages.push({ role: 'assistant', text: '\u2026', kind: 'pending' });
     talkMode = 'reply';
     renderTalk();
+    showProcess('Thinking\u2026');
     saveTalk();
     look('thinking');
     try {
+      const notes = notesContext(await readNotes());
       const answer = await requestAsk({
         action: 'talk',
         model: modelChoice,
-        text,
+        text: passages,
         title: document.title,
         prompt,
         history,
+        notes,
         thinking: false,
       });
       if (token !== talkToken) return;
-      talkMessages[talkMessages.length - 1] = { role: 'assistant', text: answer.text };
+      const reply = takeNote(answer.text);
+      talkMessages.push({ role: 'assistant', text: reply.text });
+      if (reply.note && asksToRemember(prompt))
+        void saveNote(reply.note.key, reply.note.value);
       deliver('happy');
     } catch (error) {
       if (token !== talkToken) return;
-      talkMessages[talkMessages.length - 1] = {
+      talkMessages.push({
         role: 'assistant',
         text: error instanceof Error ? error.message : 'Baleen did not answer.',
         kind: 'error',
-      };
+      });
       deliver('sad');
     } finally {
       if (token === talkToken) {
         talkBusy = false;
+        hideProcess();
         renderTalk();
         saveTalk();
         hideSayAfterAnswer();
@@ -1459,30 +1147,33 @@ export function createHost(
     return rects;
   }
   /** Each open block keeps an accent outline over its section, so scrolling never erases it. */
-  function anchorBands(anchor: ChatAnchor): Band[] {
-    if (!anchor.range || !anchor.range.startContainer.isConnected) return [];
-    const bandOf = (rect: DOMRect, media: boolean): Band => ({
+  function bandsFor(range: Range, media: Iterable<HTMLImageElement> = []): Band[] {
+    if (!range.startContainer.isConnected) return [];
+    const bandOf = (rect: DOMRect, isMedia: boolean): Band => ({
       left: rect.left,
       top: rect.top,
       right: rect.right,
       bottom: rect.bottom,
-      media,
+      media: isMedia,
     });
     const bands: Band[] = [];
     const mediaRects: DOMRect[] = [];
-    for (const image of anchor.media) {
+    for (const image of media) {
       if (!image.isConnected) continue;
       const rect = image.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) continue;
       mediaRects.push(rect);
       bands.push(bandOf(rect, true));
     }
-    for (const rect of lineRects(anchor.range)) {
+    for (const rect of lineRects(range)) {
       if (rect.width < 2 || rect.height < 2) continue;
-      if (mediaRects.some((media) => sameBox(media, rect))) continue;
+      if (mediaRects.some((box) => sameBox(box, rect))) continue;
       bands.push(bandOf(rect, false));
     }
     return mergeBands(bands);
+  }
+  function anchorBands(anchor: ChatAnchor): Band[] {
+    return anchor.range ? bandsFor(anchor.range, anchor.media) : [];
   }
   function paintHighlights() {
     highlightFrame = 0;
@@ -1754,6 +1445,14 @@ export function createHost(
     }
     if (block.messages.length) block.thread.scrollTop = block.thread.scrollHeight;
   }
+  function showProgress(block: ChatBlock, label: string) {
+    block.progress.textContent = label;
+    block.progress.hidden = false;
+  }
+  function hideProgress(block: ChatBlock) {
+    block.progress.hidden = true;
+    block.progress.textContent = '';
+  }
   function resizeChatInput(block: ChatBlock) {
     block.input.style.height = 'auto';
     block.input.style.height = `${Math.min(110, Math.max(32, block.input.scrollHeight))}px`;
@@ -1762,7 +1461,7 @@ export function createHost(
     const readable = !!block.anchor.text || block.anchor.images.length > 0;
     block.send.disabled = block.busy || !readable || !block.input.value.trim();
     block.model.sync();
-    for (const button of block.model.buttons) button.disabled = busy || block.busy;
+    for (const button of block.model.buttons) button.disabled = block.busy;
   }
   /** The next unused palette entry, so a new section never looks like one already open. */
   function autoColor(): HighlightColor {
@@ -2023,6 +1722,10 @@ export function createHost(
     const thread = make('div', 'thread');
     thread.setAttribute('role', 'log');
     thread.setAttribute('aria-live', 'polite');
+    const progress = make('div', 'process');
+    progress.hidden = true;
+    progress.setAttribute('role', 'status');
+    progress.setAttribute('aria-live', 'polite');
     const note = make('p', 'note');
     note.hidden = true;
     const form = make('form', 'form');
@@ -2074,7 +1777,7 @@ export function createHost(
       grip.element.title = grip.hint;
       grip.element.setAttribute('aria-label', grip.label);
     }
-    wrap.append(head, palette, thread, note, form, foot, ...grips.map((grip) => grip.element));
+    wrap.append(head, palette, thread, progress, note, form, foot, ...grips.map((grip) => grip.element));
     root.append(style, wrap);
     const imageCount = anchor.media.length || anchor.images.length;
     note.hidden = !imageCount;
@@ -2101,6 +1804,7 @@ export function createHost(
       input,
       send,
       thread,
+      progress,
       wrap,
       usage,
       copy,
@@ -2265,12 +1969,10 @@ export function createHost(
       if (focus) existing.input.focus({ preventScroll: true });
       return;
     }
-    closeStudy();
     const block = createChatBlock(anchor);
     blocks.push(block);
     attachBlock(block);
     syncModels();
-    syncStudyButtons();
     saveChats();
     queueHighlights();
     if (focus) block.input.focus({ preventScroll: true });
@@ -2316,53 +2018,57 @@ export function createHost(
     block.input.value = '';
     resizeChatInput(block);
     block.messages.push({ role: 'user', text: prompt });
-    block.messages.push({ role: 'assistant', text: 'Thinking\u2026', kind: 'pending' });
     block.usage.textContent = '';
     block.copy.hidden = true;
     renderThread(block);
     syncBlock(block);
     saveChats();
-    syncStudyButtons();
+    showProgress(block, 'Thinking\u2026');
     look('thinking');
     const token = ++block.token;
     const started = Date.now();
     try {
+      const notes = notesContext(await readNotes());
       const answer = await requestAsk({
         action: 'chat',
         model: modelChoice,
         text: block.anchor.text,
+        images: block.anchor.images,
         title: document.title,
         prompt,
-        images: block.anchor.images,
         history,
+        notes,
         thinking: true,
       });
       if (block.closed || token !== block.token) return;
-      block.messages[block.messages.length - 1] = {
+      const reply = takeNote(answer.text);
+      block.messages.push({
         role: 'assistant',
-        text: answer.text,
+        text: reply.text,
         reasoning: answer.reasoning,
         thoughtFor: answer.reasoning ? Date.now() - started : undefined,
-      };
+      });
+      if (reply.note && asksToRemember(prompt))
+        void saveNote(reply.note.key, reply.note.value);
       block.usage.textContent = formatUsage(answer.usage);
       block.copy.hidden = false;
-      if (first) void nameChat(block, prompt, answer.text);
+      if (first) void nameChat(block, prompt, reply.text);
       deliver('happy');
     } catch (error) {
       if (block.closed || token !== block.token) return;
-      block.messages[block.messages.length - 1] = {
+      block.messages.push({
         role: 'assistant',
         text: error instanceof Error ? error.message : 'Baleen did not answer.',
         kind: 'error',
-      };
+      });
       deliver('sad');
     } finally {
       if (!block.closed && token === block.token) {
         block.busy = false;
+        hideProgress(block);
         renderThread(block);
         syncBlock(block);
         saveChats();
-        syncStudyButtons();
         block.input.focus({ preventScroll: true });
       }
     }
@@ -2375,12 +2081,12 @@ export function createHost(
     blocks = blocks.filter((item) => item !== block);
     saveChats();
     syncModels();
-    syncStudyButtons();
     queueHighlights();
     settleLook();
   }
   function closeAllChats() {
-    if (!blocks.length) return;
+    const count = blocks.length;
+    if (!count) return count;
     for (const block of blocks) {
       block.closed = true;
       block.token += 1;
@@ -2389,9 +2095,9 @@ export function createHost(
     blocks = [];
     saveChats();
     syncModels();
-    syncStudyButtons();
     queueHighlights();
     settleLook();
+    return count;
   }
   function chatHistoryMarkdown(): string {
     const lines = ['# Baleen chat history', ''];
@@ -2407,7 +2113,6 @@ export function createHost(
         lines.push('', `_Images (text only): ${block.anchor.images.join(' \u00b7 ')}_`);
       lines.push('');
       for (const message of block.messages) {
-        if (message.kind === 'pending') continue;
         const label = message.role === 'user' ? 'You' : 'Baleen';
         const suffix = message.kind === 'error' ? ' (error)' : '';
         if (message.reasoning)
@@ -2425,7 +2130,6 @@ export function createHost(
     if (talked) {
       lines.push('', '## Reading chat', '');
       for (const message of talkMessages) {
-        if (message.kind === 'pending') continue;
         const label = message.role === 'user' ? 'You' : 'Baleen';
         const suffix = message.kind === 'error' ? ' (error)' : '';
         lines.push(`**${label}${suffix}:**`, message.text, '');
@@ -2434,18 +2138,17 @@ export function createHost(
     if (!sections && !talked) return '';
     return `${lines.join('\n').trimEnd()}\n`;
   }
-  function flashHint(note: HTMLSpanElement, message: string) {
-    note.textContent = message;
-    window.setTimeout(() => syncStudyButtons(), 1400);
-  }
-  function exportChatHistory(note: HTMLSpanElement) {
-    const text = chatHistoryMarkdown();
-    if (!text) {
-      flashHint(note, 'No questions yet');
-      return;
-    }
-    const date = new Date().toISOString().slice(0, 10);
-    flashHint(note, downloadText(`baleen-chats-${date}.md`, text) ? 'Saved' : 'Download blocked');
+  async function studyPage(action: 'keywords' | 'summarize'): Promise<string> {
+    const text = pagePassage();
+    if (!text) throw new Error('This page has no readable text to study.');
+    const result = await requestAsk({
+      action,
+      model: modelChoice,
+      text,
+      title: document.title,
+      thinking: false,
+    });
+    return result.text;
   }
   function saveChats() {
     const items = blocks.map((block) => ({
@@ -2529,7 +2232,7 @@ export function createHost(
                 ((value as ChatMessage).role === 'user' ||
                   (value as ChatMessage).role === 'assistant') &&
                 typeof (value as ChatMessage).text === 'string' &&
-                (value as ChatMessage).kind !== 'pending',
+                String((value as ChatMessage).kind) !== 'pending',
             )
             .map((message) => ({
               role: message.role,
@@ -2565,7 +2268,6 @@ export function createHost(
     // left alone so its saved node paths survive a page that has not finished loading.
     if (legacy) saveChats();
     syncModels();
-    syncStudyButtons();
     queueHighlights();
   }
   function scheduleRepair() {
@@ -2580,10 +2282,6 @@ export function createHost(
       queueHighlights();
     }, 120);
   }
-  studyButton.onclick = toggleStudy;
-  studyClose.onclick = closeStudy;
-  characterButton.onclick = toggleCharacter;
-  characterClose.onclick = closeCharacter;
   function legacyCopy(value: string): boolean {
     const area = document.createElement('textarea');
     area.value = value;
@@ -2704,8 +2402,6 @@ export function createHost(
       if (path.includes(askHost)) return;
       hideAskChip();
       if (path.includes(element)) return;
-      closeStudy();
-      closeCharacter();
       closeTalk();
     },
     { capture: true, signal: abort.signal },
@@ -2729,20 +2425,6 @@ export function createHost(
         return;
       }
       hideAskChip();
-      if (!studyPanel.hidden) {
-        event.preventDefault();
-        event.stopPropagation();
-        closeStudy();
-        studyButton.focus();
-        return;
-      }
-      if (!characterPanel.hidden) {
-        event.preventDefault();
-        event.stopPropagation();
-        closeCharacter();
-        characterButton.focus();
-        return;
-      }
       if (!say.hidden) {
         event.preventDefault();
         event.stopPropagation();
@@ -2828,7 +2510,7 @@ export function createHost(
     });
   }
   function resize(scale: number) {
-    const art = characterById(current.character);
+    const art = characterById(characterForModel(current.model));
     // Trimmed art: this is the height of the drawn figure, not of a padded canvas.
     height = Math.min(
       // 312 is what 120% used to draw; 100% now means that size.
@@ -2848,19 +2530,14 @@ export function createHost(
   function apply(value: Settings) {
     current = value;
     wrapper.dataset.hidden = String(value.hidden);
-    if (value.hidden) {
-      closeStudy();
-      closeCharacter();
-      closeTalk();
-    }
+    if (value.hidden) closeTalk();
     modelChoice = value.model;
     applyTheme(wrapper, value.theme);
     applyTheme(askHost, value.theme);
     for (const block of blocks) applyTheme(block.host, value.theme);
     syncModels();
-    character.setCharacter(value.character);
+    character.setCharacter(characterForModel(value.model));
     character.setAnimated(value.animate);
-    syncCharacterPanel(value);
     resize(value.scale);
     // The viewport moved the anchor rects and may have changed how much room a window has, so the
     // windows are re-seated beside their sections at their stored size.
@@ -2918,13 +2595,7 @@ export function createHost(
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       toggleTalk();
-    } else if (
-      event.key === 'Escape' &&
-      studyPanel.hidden &&
-      characterPanel.hidden &&
-      say.hidden
-    )
-      actions.hide();
+    } else if (event.key === 'Escape' && say.hidden) actions.hide();
   });
   window.addEventListener(
     'resize',
@@ -2953,6 +2624,10 @@ export function createHost(
   return {
     element,
     apply,
+    study: studyPage,
+    exportChats: chatHistoryMarkdown,
+    closeChats: closeAllChats,
+    chatCount: () => blocks.length,
     destroy() {
       saveChats();
       saveTalk();

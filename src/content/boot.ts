@@ -12,12 +12,42 @@ export function bootCompanion() {
   let controller: Awaited<ReturnType<typeof startCompanion>> | undefined;
   // The popup asks every tab to show her. A live script replays the saved state; if this listener
   // is gone (orphaned by an extension reload) the service worker injects a fresh copy instead.
-  const ensure = (message: unknown, _sender: chrome.runtime.MessageSender, reply: (value?: unknown) => void) => {
-    if ((message as { type?: unknown } | null)?.type !== 'fg:ensure') return;
-    if (controller) void controller.refresh().catch(() => undefined);
-    reply({ ok: true });
+  const listen = (
+    message: unknown,
+    _sender: chrome.runtime.MessageSender,
+    reply: (value?: unknown) => void,
+  ) => {
+    const m = message as { type?: unknown; action?: unknown } | null;
+    if (m?.type === 'fg:ensure') {
+      if (controller) void controller.refresh().catch(() => undefined);
+      reply({ ok: true });
+      return;
+    }
+    if (m?.type === 'fg:study') {
+      const action = m.action === 'summarize' ? 'summarize' : 'keywords';
+      if (!controller) {
+        reply({ ok: false, error: 'This page is still loading. Try again in a moment.' });
+        return;
+      }
+      controller.study(action).then(
+        (text) => reply({ ok: true, data: { text } }),
+        (error) =>
+          reply({
+            ok: false,
+            error: error instanceof Error ? error.message : 'Study did not finish.',
+          }),
+      );
+      return true;
+    }
+    if (m?.type === 'fg:export-chats') {
+      reply({ ok: true, data: { text: controller?.exportChats() ?? '' } });
+      return;
+    }
+    if (m?.type === 'fg:close-chats') {
+      reply({ ok: true, data: { count: controller?.closeChats() ?? 0 } });
+    }
   };
-  if (isExtension()) chrome.runtime.onMessage.addListener(ensure);
+  if (isExtension()) chrome.runtime.onMessage.addListener(listen);
   let generation = 0;
   const start = async () => {
     const ticket = ++generation;
@@ -41,7 +71,7 @@ export function bootCompanion() {
   window.addEventListener('pageshow', pageshow);
   context.__fungusanCleanup = () => {
     stop();
-    if (isExtension()) chrome.runtime.onMessage.removeListener(ensure);
+    if (isExtension()) chrome.runtime.onMessage.removeListener(listen);
     window.removeEventListener('pagehide', stop);
     window.removeEventListener('pageshow', pageshow);
   };

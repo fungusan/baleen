@@ -1,6 +1,7 @@
 /*
- * Baleen menu. One compact editor panel: uppercase micro-headers, hairline-separated rows, square
- * affordances, and the sage green as the only accent. Follows the device theme unless one is pinned.
+ * Baleen menu. The compact settings panel from the original popup, unchanged, with one Study row
+ * that opens a second level in the same window. Uppercase micro-labels, hairline separators,
+ * square affordances, and sage green as the only accent.
  */
 :root {
   --bg: light-dark(#ffffff, #000000);
@@ -43,6 +44,53 @@ body {
 }
 #app {
   padding: 11px 12px 10px;
+}
+
+/* Two levels share the same window; only a click switches between them. */
+.view[hidden] {
+  display: none;
+}
+.view-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  font-size: 9.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.back:hover {
+  color: var(--ink);
+  background: var(--sunken);
+  border-color: var(--stone);
+}
+.back .chev {
+  width: 5px;
+  height: 5px;
+  margin: 0 1px 0 0;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(135deg);
+}
+.view-title {
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink);
 }
 
 /* Header — identity on the left, version in the far corner. */
@@ -89,7 +137,7 @@ h1 {
   color: var(--accent);
 }
 
-/* Rows — hairline separators, one label group per section. */
+/* Rows — hairline separators, one label group per section, exactly as before. */
 .rows {
   margin-top: 12px;
   border-top: 1px solid var(--line);
@@ -164,6 +212,50 @@ h1 {
   color: var(--faint);
 }
 
+/* Study row — a menu item that opens the second level; it does not move the rows above it. */
+.submenu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  text-align: left;
+  border-radius: 2px;
+}
+.submenu .trigger-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.submenu .trigger-hint {
+  flex: none;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.submenu .chev {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin: 0 3px 0 1px;
+  border-right: 1px solid var(--muted);
+  border-bottom: 1px solid var(--muted);
+  transform: rotate(-45deg);
+}
+.submenu:hover .trigger-label {
+  color: var(--accent);
+}
+.submenu:hover .trigger-hint {
+  color: var(--muted);
+}
+.submenu:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Theme — three scheme choices; System follows the device. */
 .seg {
   display: inline-flex;
@@ -224,12 +316,124 @@ button {
   border: 0;
   cursor: pointer;
 }
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+.primary {
+  padding: 5px 10px;
+  font-size: 10px;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 3px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.primary:hover:not(:disabled) {
+  background: rgba(132, 159, 93, 0.2);
+  border-color: var(--accent);
+}
+.text-button {
+  padding: 3px 7px;
+  font-size: 9.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.text-button:hover {
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.actions {
+  display: flex;
+  gap: 5px;
+  margin-top: 9px;
+}
+.actions .primary {
+  flex: 1;
+}
+.actions.end {
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+
+/* Study result — scrolls inside the second level rather than growing the popup. */
+.result {
+  max-height: 150px;
+  margin: 7px 0 0;
+  padding: 8px 9px;
+  overflow: auto;
+  font: 10px/1.6 var(--sans);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.result[hidden] {
+  display: none;
+}
+.result > :first-child {
+  margin-top: 0;
+}
+.result > :last-child {
+  margin-bottom: 0;
+}
+.result p {
+  margin: 0 0 5px;
+  white-space: pre-wrap;
+}
+.result ul,
+.result ol {
+  margin: 0 0 5px;
+  padding-left: 15px;
+}
+.result li {
+  margin: 1px 0;
+}
+.result strong {
+  font-weight: 600;
+}
+.result code {
+  padding: 0 2px;
+  font: 9.5px/1.5 var(--mono);
+  background: var(--sunken);
+  border-radius: 2px;
+}
+.result pre {
+  margin: 0 0 5px;
+  padding: 6px 7px;
+  overflow: auto;
+  background: var(--sunken);
+  border-radius: 3px;
+}
+.result pre code {
+  padding: 0;
+  background: transparent;
+}
+.result a {
+  color: var(--accent);
+}
+#study-status {
+  margin-top: 7px;
+}
+
 /* Model dropdown — an editor-style panel that opens under the trigger. */
 .dropdown {
   position: relative;
@@ -367,6 +571,86 @@ select:focus-visible {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* Notes — folded into the Study level, below the page tools. */
+.notes-label {
+  margin-top: 12px;
+  padding: 9px 0 3px;
+  border-top: 1px solid var(--line);
+}
+/* Key and value share one row; the actions sit under it. */
+.note-line {
+  display: flex;
+  gap: 5px;
+}
+.note-form input {
+  width: auto;
+  min-width: 0;
+  padding: 5px 7px;
+  font: 10px/1.4 var(--sans);
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+#note-key {
+  flex: 0 0 76px;
+}
+#note-value {
+  flex: 1;
+}
+.note-form input:focus {
+  outline: none;
+  border-color: rgba(132, 159, 93, 0.5);
+  box-shadow: 0 0 0 1px rgba(132, 159, 93, 0.15);
+}
+.note-form input:disabled {
+  color: var(--muted);
+}
+.note-form .actions {
+  margin-top: 5px;
+}
+.notes {
+  max-height: 150px;
+  margin: 9px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.notes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.note-text {
+  flex: 1;
+  min-width: 0;
+}
+.note-text strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.note-text p {
+  margin: 1px 0 0;
+  font-size: 10px;
+  line-height: 1.55;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.note-ops {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
 .key-foot {
   display: flex;
   align-items: baseline;
@@ -377,23 +661,6 @@ select:focus-visible {
   flex: 1;
   min-width: 0;
   margin: 0;
-}
-.text-button {
-  padding: 3px 7px;
-  font-size: 9.5px;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  transition:
-    background 0.15s,
-    color 0.15s,
-    border-color 0.15s;
-}
-.text-button:hover {
-  color: var(--ink);
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
 }
 .key-form {
   display: block;
@@ -411,7 +678,7 @@ select:focus-visible {
   flex: 1;
   min-width: 0;
   padding: 5px 7px;
-  font: 10px/1.4 var(--mono);
+  font: 10px/1.4 var(--sans);
   color: var(--ink);
   background: var(--sunken);
   border: 1px solid var(--line);
@@ -426,19 +693,9 @@ select:focus-visible {
   box-shadow: 0 0 0 1px rgba(132, 159, 93, 0.15);
 }
 .key-form .primary {
+  flex: none;
   padding: 5px 9px;
   font-size: 9.5px;
-  color: var(--ink);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: 3px;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-.key-form .primary:hover {
-  background: rgba(132, 159, 93, 0.2);
-  border-color: var(--accent);
 }
 .key-form .hint {
   margin-top: 0;
@@ -466,16 +723,23 @@ select:focus-visible {
   min-height: 0;
   margin: 0;
 }
+#status[data-tone='error'] {
+  color: light-dark(#b42318, #f97066);
+}
 footer {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  gap: 1px;
   margin-top: 7px;
   font-size: 9.5px;
   line-height: 1.5;
   color: var(--faint);
+}
+footer .links {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 footer .sep {
   color: var(--stone);

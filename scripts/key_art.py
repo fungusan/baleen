@@ -27,16 +27,26 @@ def background_mask(rgb: np.ndarray) -> np.ndarray:
     touching = set(np.unique(edges)) - {0}
     sizes = ndimage.sum(whiteish, labels, range(1, count + 1))
     chroma = rgb.max(axis=2) - rgb.min(axis=2)
+    blue = rgb[..., 2].astype(np.int16) - np.maximum(rgb[..., 0], rgb[..., 1]).astype(np.int16)
     pocket_ids = np.zeros(count + 1, bool)
+    protected_ids = np.zeros(count + 1, bool)
     for index in range(1, count + 1):
         if index in touching or sizes[index - 1] < 100:
             continue
         region = labels == index
         ring = ndimage.binary_dilation(region, iterations=6) & ~ndimage.binary_dilation(region, iterations=2)
-        if (chroma[ring] > 40).mean() >= 0.45:
+        ring_chroma = (chroma[ring] > 40).mean()
+        ring_blue = ((blue > 6) & ring).sum() / ring.sum()
+        if ring_chroma >= 0.45:
             pocket_ids[index] = True
+        elif sizes[index - 1] >= 1500 and ring_blue < 0.45:
+            # A big enclosed white with a neutral ring is paper or fabric, not a gap: keep it out
+            # of the growth pass so the border flood cannot cross into it through a thin outline.
+            protected_ids[index] = True
     pockets = pocket_ids[labels]
+    whiteish &= ~protected_ids[labels]
     whiteish |= pockets
+
     # Grow the white by one pixel: it closes diagonal gaps between hair strands so enclosed
     # background pockets join the outer region, and it eats the pale anti-aliased rim.
     grown = np.asarray(Image.fromarray(np.where(whiteish, 255, 0).astype(np.uint8), "L").filter(ImageFilter.MaxFilter(3)))
@@ -144,7 +154,11 @@ def export(
         else:
             background = background_mask(rgb)
             coverage = (~background).astype(np.float32)
-            bg_color = np.array([255.0, 255.0, 255.0], np.float32)
+            # A supplied page is not always #ffffff (this one sits at 246,244,245). Measure it so
+            # the edge unblend does not subtract ten levels too much and leave a dark rim.
+            bg_color = np.median(
+                np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]]).astype(np.float32), axis=0
+            )
 
     solid = coverage > 0.35
     ys, xs = np.where(solid)

@@ -53,7 +53,7 @@ function captionText(container: Element): string {
   }
   return '';
 }
-/** Selections inside our own UI (a chat block or the companion's panels) are never page text. */
+/** Selections inside our own UI (a chat block or the companion's card) are never page text. */
 function inOwnUi(node: Node | null): boolean {
   if (!node) return false;
   const element = node instanceof Element ? node : node.parentElement;

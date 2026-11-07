@@ -14,5 +14,7 @@ art-src/*
 !art-src/baleen
 art-src/baleen/*
 !art-src/baleen/raw
+!art-src/baleen/WORKFLOW.md
 art-src/baleen/raw/*
 !art-src/baleen/raw/master-idle-v2.png
+!art-src/baleen/raw/flash-master.png

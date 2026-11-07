@@ -1,5 +1,5 @@
-// The shipped character. IDs are the storage/art keys; names are display-only.
-export const CHARACTER_IDS = ['baleen'] as const;
+// The shipped characters. IDs are the art keys; the selected model decides which one is drawn.
+export const CHARACTER_IDS = ['baleen', 'baleen-flash'] as const;
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 // Decorative motions she can play; every one uses the same idle drawing.
 export type Look = 'idle' | 'listen' | 'thinking' | 'speak' | 'happy' | 'sad' | 'rest';
@@ -20,17 +20,16 @@ export const DEEPSEEK_MODEL_LABELS: Record<DeepSeekModel, string> = {
 };
 export const DEFAULT_MODEL: DeepSeekModel = 'deepseek-flash';
 export interface Settings {
-  version: 7;
+  version: 8;
   theme: Theme;
   scale: number;
   hidden: boolean;
   animate: boolean;
   position: Position | null;
   model: DeepSeekModel;
-  character: CharacterId;
 }
 export type SettingsPatch = Partial<
-  Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model' | 'character'>
+  Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model'>
 >;
 export type AskAction = 'chat' | 'talk' | 'summarize' | 'keywords' | 'title';
 export interface ChatTurn {
@@ -48,6 +47,8 @@ export interface AskRequest {
   images?: string[];
   /** Earlier questions and answers in this inline chat. */
   history?: ChatTurn[];
+  /** The reader's editable key: value notes, attached to conversational requests only. */
+  notes?: string;
   /** Ask DeepSeek to reason first; the chain of thought comes back in `reasoning`. */
   thinking?: boolean;
 }
@@ -56,7 +57,3 @@ export interface AskResult {
   reasoning?: string;
   usage?: { input: number; output: number };
 }
-export type Message =
-  | { type: 'fg:update'; patch: SettingsPatch }
-  | { type: 'fg:ask'; request: AskRequest }
-  | { type: 'fg:ensure' };
