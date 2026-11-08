@@ -57,6 +57,20 @@ function pdfTexts(): string[] {
     : [];
 }
 
+/** Rendered text of the readable region, with Baleen's own chat windows left out. */
+function regionText(region: HTMLElement): string {
+  const chats = [...region.querySelectorAll<HTMLElement>('[data-fg-chat]')];
+  const restore = chats.map((chat) => chat.style.display);
+  for (const chat of chats) chat.style.display = 'none';
+  try {
+    return normalize(region.innerText || region.textContent || '').slice(0, MAX_SCAN);
+  } finally {
+    chats.forEach((chat, index) => {
+      if (restore[index]) chat.style.display = restore[index];
+      else chat.style.removeProperty('display');
+    });
+  }
+}
 /** Paragraph-sized pieces in reading order, built from the rendered page itself when it is HTML. */
 function chunksFromPage(): Chunk[] {
   const chunks: Chunk[] = [];
@@ -90,8 +104,16 @@ function chunksFromPage(): Chunk[] {
     scanned += text.length;
     if (scanned >= MAX_SCAN) break;
   }
+  // Some sites render the article as bare divs. A few semantic blocks elsewhere (a heading, a
+  // nav item) used to be enough to return early and leave the body out of the index entirely.
+  // Add the readable region whenever the block walk covered only part of it.
+  const full = regionText(region);
+  const indexed = chunks.reduce((total, chunk) => total + chunk.text.length, 0);
+  if (full && indexed < full.length * 0.55) {
+    for (const paragraph of full.split(/\n{2,}/)) add(paragraph);
+  }
   if (chunks.length) return chunks;
-  // Pages built from divs have no semantic blocks; fall back to the readable region's paragraphs.
+  // Last resort: the shared page extractor, which also handles the bundled PDF reader.
   for (const paragraph of pagePassage().split(/\n{2,}/)) add(paragraph);
   return chunks;
 }
@@ -156,22 +178,54 @@ function spread(chunks: Chunk[], budget: number): string {
 }
 
 /**
+ * The paragraph, or whole short list, under the reader's eyes. This is the fallback focus when a
+ * question says "these questions" without an open section chat to point at.
+ */
+export function viewportPassage(): string {
+  const point = document.elementFromPoint(innerWidth / 2, Math.min(innerHeight * 0.45, innerHeight - 24));
+  if (!(point instanceof Element) || point.closest(OWN_UI)) return '';
+  const root = point.getRootNode();
+  if (root instanceof ShadowRoot && root.host instanceof Element && root.host.closest(OWN_UI))
+    return '';
+  const block = point.closest<HTMLElement>(BLOCK_SELECTOR);
+  if (!block) return '';
+  const list = block.closest<HTMLElement>('ol, ul');
+  const scope = list && list.getBoundingClientRect().height <= innerHeight ? list : block;
+  return normalize(scope.innerText || scope.textContent || '').slice(0, 2000);
+}
+
+/** Put the section the reader is pointing at ahead of the retrieved page text, without repeating it. */
+function withFocus(focus: string, passages: string, budget: number): string {
+  const head = normalize(focus).slice(0, Math.min(1800, Math.floor(budget * 0.55)));
+  if (head.length < 20) return passages.slice(0, budget);
+  const probe = head.slice(0, Math.min(160, head.length)).toLowerCase();
+  if (passages.toLowerCase().includes(probe)) return passages.slice(0, budget);
+  const room = Math.max(0, budget - head.length - 2);
+  return `${head}\n\n${passages.slice(0, room)}`.trim();
+}
+
+/**
  * The most relevant passages for a question, in page order. When nothing matches lexically (a
  * vague "what is this about?"), a spread sample of the page is used so the answer still has context.
+ * A focus passage (the current selection or section) always travels first.
  */
-export function findPassages(question: string, budget = DEFAULT_BUDGET): string {
+export function findPassages(
+  question: string,
+  budget = DEFAULT_BUDGET,
+  focus = '',
+): string {
   const chunks = chunksFromPage();
-  if (!chunks.length) return '';
+  if (!chunks.length) return normalize(focus).slice(0, budget);
   const terms = queryTerms(question);
-  if (!terms.length) return spread(chunks, budget);
+  if (!terms.length) return withFocus(focus, spread(chunks, budget), budget);
   const ranked = rank(chunks, terms)
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score);
-  if (!ranked.length) return spread(chunks, budget);
+  if (!ranked.length) return withFocus(focus, spread(chunks, budget), budget);
   const order: number[] = [];
   for (const { index } of ranked.slice(0, 40)) {
     // A neighbor on each side keeps a hit from arriving without the sentence that frames it.
     order.push(index - 1, index, index + 1);
   }
-  return join(chunks, order, budget);
+  return withFocus(focus, join(chunks, order, budget), budget);
 }

@@ -17,7 +17,7 @@ export function bootCompanion() {
     _sender: chrome.runtime.MessageSender,
     reply: (value?: unknown) => void,
   ) => {
-    const m = message as { type?: unknown; action?: unknown } | null;
+    const m = message as { type?: unknown; action?: unknown; scope?: unknown } | null;
     if (m?.type === 'fg:ensure') {
       if (controller) void controller.refresh().catch(() => undefined);
       reply({ ok: true });
@@ -42,7 +42,8 @@ export function bootCompanion() {
       return;
     }
     if (m?.type === 'fg:export-chats') {
-      reply({ ok: true, data: { text: controller?.exportChats() ?? '' } });
+      const scope = m.scope === 'talk' ? 'talk' : 'study';
+      reply({ ok: true, data: { text: controller?.exportChats(scope) ?? '' } });
       return;
     }
     if (m?.type === 'fg:clear-talk') {

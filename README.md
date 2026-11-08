@@ -4,17 +4,19 @@ Manifest V3 Chromium extension (`1.3.0`). She appears on every HTTP(S) page as o
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
 section you highlight, and runs keywords or a whole-page summary through the DeepSeek or Kimi API
 using your own key. Top-level PDFs open in a bundled reader with the same selection chat and Study
-actions. Preferences, notes, and open section chats are saved in the extension.
+actions. Preferences, her memory of you, and open section chats are saved in the extension.
 
 ## Companion
 
 Baleen has four drawings chosen by the chat model: the maid for **V4 Pro**, the notebook version
 for **Flash**, the pumpkin cat for **Kimi K3.1 Pro**, and the moonlit flute dress for **Kimi K3**.
 Neither adds buttons to the page. The toolbar popup keeps the original
-compact panel: **Appearance** (theme, show on pages, size, animate) and **Connection** (API key and
-model). Each provider keeps its own key, so switching between DeepSeek and Kimi swaps the key row.
-**Study** opens a second level in the same popup for keywords, summarize, export chats,
-clear the reading chat, close all chats, and your notes, with **Back** to return to the settings. Every surface writes the same
+compact panel: **Appearance** (theme, show on pages, size, animate) and **Connection** (API key,
+model, and memory). Each provider keeps its own key, so switching between DeepSeek and Kimi swaps
+the key row. **Study** opens a second level in the same popup for keywords, summarize, and one chats
+card with two choices — **Reading chat** and **Study chats** — each revealing its export and clear or
+close actions. Connection also carries **Memory**, Baleen's memory of you, whose count sits on the
+row and whose own page shows five entries at a time. **Back** returns to the settings. Every surface writes the same
 settings, so a choice applies to every tab at once and survives a reload. Each model has one idle
 render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
 that drawing — no per-state art — and they are driven only by what you do in the popup or her own
@@ -85,35 +87,42 @@ Answers render Markdown (lists, tables, emphasis, inline code, fenced blocks, li
 chain of thought comes back in a collapsible **Thought for Ns** block above the answer. Raw HTML in
 a reply stays literal text.
 
-Open **Study** in the popup for **Keywords** or **Summarize** across the page's main readable text:
-the answer opens as a chat pinned at her lower left, fixed to the screen with no highlight, and
-asking the same action again reuses that chat rather than opening another. The level also holds **Export chats** (a Markdown
-transcript of what you asked on this page this session: every section conversation filed under its
-auto name, then her reading chat, each with its model, provider, and message count), **Clear
-reading chat**, and **Close all chats**. Study reads the tab you opened the popup from, including
-the bundled PDF reader, and answers with the same Markdown and LaTeX rendering as chat. Requests
-go from the service worker straight to the selected provider — `https://api.deepseek.com` or
-`https://api.moonshot.ai` — and each key is stored in `chrome.storage.local`, never shown again
-after saving, and never reaches the page.
+Open **Study** in the popup for **Keywords** or **Summarize** across the page area in view (or the
+whole document in the PDF reader): the answer opens as a chat pinned at her lower left, fixed to the
+screen with no highlight, and asking the same action again reuses that chat rather than opening
+another. Below them a **Chats** card holds two choices: open **Reading chat** for **Export reading
+chat** and **Clear reading chat**, or **Study chats** for **Export study chats** and **Close study
+chats**. Each export is a Markdown transcript of that family on this page this session — every
+section conversation filed under its auto name, or her reading chat — with its model, provider, and
+message count. Study reads the tab you opened the popup from, including the bundled PDF reader, and answers
+with the same Markdown and LaTeX rendering as chat. Requests go from the service worker straight to
+the selected provider — `https://api.deepseek.com` or `https://api.moonshot.ai` — and each key is
+stored in `chrome.storage.local`, never shown again after saving, and never reaches the page.
 
-## Notes and page search
+## Memory and page search
 
 She never sends a whole page just to answer a chat message. On a web page the content script walks
 the semantic blocks in the main region (on a PDF, the text extracted page by page), splits them into
-passage-sized pieces, and scores them against the question with a small local lexical ranker. Only
-the best passages and their neighbors travel — about 3,500 characters — and a vague question gets an
-evenly spread sample instead. Section chat stays narrower still: it sends the selected section.
+passage-sized pieces, and scores them against the question with a small local lexical ranker. Text
+rendered as bare divs is still indexed: when the semantic blocks cover less than about half of the
+region, the rest is added paragraph by paragraph. Only the best passages and their neighbors travel
+— about 3,500 characters — and a vague question gets an evenly spread sample instead. The reading
+chat adds focus: your current selection if you have one, otherwise the section nearest the middle of
+the screen, so "what are these exercises?" finds what you are actually looking at. Section chat
+stays narrower still: it sends the selected section.
 
-**Notes** in the popup are a key-value store in `chrome.storage.local` shared by every tab. The key
-and value sit on one row: add a key such as `tone` with a value such as `Prefers short, concrete
-answers`, edit the value, or delete the entry; keys are matched case-insensitively, so saving the
-same key updates it. Notes travel with section and reading chats as reference (newest first, about
-2,400 characters). Ask either chat to remember something — "remember that I prefer short examples" —
-and she adds a note, which appears in the popup list; only an explicit request writes one, and you
-can still edit or delete it. A section chat reads and writes the same notes but still sends only its
-selected section, while her reading chat searches the page for relevant passages and answers in one
-short sentence. Each API key sits in the same local storage and is sent only to its provider —
-`https://api.deepseek.com` or `https://api.moonshot.ai` — when you ask.
+**Memory**, opened from the Connection row, is Baleen's memory of you: one key-value store in
+`chrome.storage.local` shared by every tab. The row shows only its count; the page lists five
+entries per page with **Prev** and **Next**. She writes an entry when you ask her to
+remember something — "remember that I prefer short examples" — and when what you say in a chat
+reveals a durable preference, interest, goal, or personal fact; she never records page text. Add a
+key yourself such as `tone` with a value such as `Prefers short, concrete answers` (a value may hold
+a short paragraph), edit it, or delete it; keys are matched case-insensitively, so saving the same
+key updates it. Memory travels with section and reading chats as reference, newest first, up to
+about 3,000 characters. A section chat reads and writes the same list but still sends only its
+selected section, while her reading chat answers in one short sentence. Each API key sits in the
+same local storage and is sent only to its provider — `https://api.deepseek.com` or
+`https://api.moonshot.ai` — when you ask.
 
 ## PDF reader
 
@@ -153,14 +162,14 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
   DeepSeek and Kimi host permissions, CSP.
 - `src/viewer/` — bundled pdf.js reader: lazy page rendering, selectable text layer, whole-document
   text extraction for Study, download and open-original escape hatches.
-- `src/popup/` — the compact Appearance and Connection panel, plus the Study level with notes.
+- `src/popup/` — the compact Appearance and Connection panel, Study, and the Memory page.
 - `src/background.ts` — serialized preference writes, the show/hide shortcut, tab re-injection, and
   the model requests.
 - `src/shared/chat.ts` — provider client (DeepSeek and Kimi), request bodies, and prompts.
 - `src/shared/key.ts` — per-provider key validation and local storage.
 - `src/shared/help.ts` — the trusted built-in reference about Baleen, attached only to messages that
   ask about the extension.
-- `src/shared/notes.ts` — the reader's editable key-value notes and their request budget.
+- `src/shared/notes.ts` — Baleen's memory of the reader, kept as editable key-value pairs.
 - `src/content/` — companion card, the anchored section chat windows, and the reading chat.
 - `src/content/retrieve.ts` — the local passage ranker that keeps whole pages out of requests.
 - `src/shared/` — character metadata, settings sanitization, and message types.

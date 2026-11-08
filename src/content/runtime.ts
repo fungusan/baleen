@@ -1,6 +1,6 @@
 import { createHost } from './host';
 import { isExtension, readSettings, watchSettings } from '../shared/settings';
-import type { Settings, SettingsPatch } from '../shared/types';
+import type { ChatExportScope, Settings, SettingsPatch } from '../shared/types';
 
 export async function startCompanion() {
   let mounted: ReturnType<typeof createHost> | undefined;
@@ -43,8 +43,8 @@ export async function startCompanion() {
       if (!mounted) throw new Error('Baleen is still starting. Try again.');
       mounted.study(action);
     },
-    exportChats() {
-      return mounted?.exportChats() ?? '';
+    exportChats(scope: ChatExportScope) {
+      return mounted?.exportChats(scope) ?? '';
     },
     clearTalk() {
       return mounted?.clearTalk() ?? 0;

@@ -1,8 +1,8 @@
 import { characterCSS, createCharacter } from './render/compositor';
 import { renderMarkdown } from './render/markdown';
 import { captureSection, pagePassage, requestAsk, type SectionCapture } from './ask';
-import { findPassages } from './retrieve';
-import { asksToRemember, notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
+import { findPassages, viewportPassage } from './retrieve';
+import { notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
 import { asksAboutBaleen } from '../shared/help';
 import { characterById, characterForModel } from '../shared/characters';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
 import type {
+  ChatExportScope,
   ChatTurn,
   Look,
   Model,
@@ -1196,6 +1197,32 @@ export function createHost(
     if (say.hidden && processBubble.hidden) openTalk();
     else closeTalk();
   }
+  // A selection collapses the moment the reader clicks her bubble, so the text they just pointed
+  // at stays a focus candidate for a few minutes.
+  let lastSelection = { text: '', at: 0 };
+  /**
+   * The section the reader is pointing at: a live selection first, then the one they just made,
+   * then the nearest open section chat, then the block under the middle of the viewport.
+   * "These questions" has a referent.
+   */
+  function readingFocus(): string {
+    const selected = captureSection();
+    if (selected?.text) return selected.text;
+    if (lastSelection.text && Date.now() - lastSelection.at < 300_000) return lastSelection.text;
+    const middle = innerHeight / 2;
+    let nearest = '';
+    let distance = innerHeight * 1.5;
+    for (const block of blocks) {
+      if (block.closed || block.anchor.study) continue;
+      const rect = block.host.getBoundingClientRect();
+      const offset = Math.abs((rect.top + rect.bottom) / 2 - middle);
+      if (offset < distance) {
+        nearest = block.anchor.text;
+        distance = offset;
+      }
+    }
+    return nearest || viewportPassage();
+  }
   async function sendTalk() {
     if (talkBusy) return;
     const prompt = talkInput.value.trim();
@@ -1207,7 +1234,7 @@ export function createHost(
       .filter((message) => message.role === 'user' && !message.kind)
       .pop();
     const help = currentHelp || asksAboutBaleen(lastUser?.text);
-    const passages = currentHelp ? '' : findPassages(prompt);
+    const passages = currentHelp ? '' : findPassages(prompt, undefined, readingFocus());
     if (!passages && !help) {
       talkMessages.push({
         role: 'assistant',
@@ -1247,9 +1274,13 @@ export function createHost(
       });
       if (token !== talkToken) return;
       const reply = takeNote(answer.text);
-      talkMessages.push({ role: 'assistant', text: reply.text, model: modelChoice });
-      if (reply.note && asksToRemember(prompt))
-        void saveNote(reply.note.key, reply.note.value);
+      talkMessages.push({
+        role: 'assistant',
+        // A reply carrying only a hidden line still needs a visible bubble.
+        text: reply.text || (reply.note ? 'Noted.' : answer.text),
+        model: modelChoice,
+      });
+      if (reply.note) void saveNote(reply.note.key, reply.note.value);
       deliver('happy');
     } catch (error) {
       if (token !== talkToken) return;
@@ -2386,7 +2417,7 @@ export function createHost(
         action: 'chat',
         model: modelChoice,
         text: block.anchor.study
-          ? findPassages(prompt) || pagePassage()
+          ? findPassages(prompt, undefined, viewportPassage()) || pagePassage()
           : block.anchor.text,
         images: block.anchor.images,
         title: document.title,
@@ -2397,18 +2428,18 @@ export function createHost(
       });
       if (block.closed || token !== block.token) return;
       const reply = takeNote(answer.text);
+      const shown = reply.text || (reply.note ? 'Noted — I will remember that.' : '');
       block.messages.push({
         role: 'assistant',
-        text: reply.text,
+        text: shown || answer.text,
         model: modelChoice,
         reasoning: answer.reasoning,
         thoughtFor: answer.reasoning ? Date.now() - started : undefined,
       });
-      if (reply.note && asksToRemember(prompt))
-        void saveNote(reply.note.key, reply.note.value);
+      if (reply.note) void saveNote(reply.note.key, reply.note.value);
       block.usage.textContent = formatUsage(answer.usage);
       block.copy.hidden = false;
-      if (first && !block.anchor.study) void nameChat(block, prompt, reply.text);
+      if (first && !block.anchor.study) void nameChat(block, prompt, shown);
       deliver('happy');
     } catch (error) {
       if (block.closed || token !== block.token) return;
@@ -2455,8 +2486,18 @@ export function createHost(
     settleLook();
     return count;
   }
-  function chatHistoryMarkdown(): string {
-    const lines = ['# Baleen chat history', ''];
+  function chatHistoryMarkdown(scope: ChatExportScope): string {
+    const studyBlocks =
+      scope === 'study'
+        ? blocks.filter((block) => block.messages.some((message) => message.role === 'user'))
+        : [];
+    const talked =
+      scope === 'talk' && talkMessages.some((message) => message.role === 'user');
+    if (!studyBlocks.length && !talked) return '';
+    const lines = [
+      scope === 'talk' ? '# Baleen reading chat' : '# Baleen study chats',
+      '',
+    ];
     lines.push(`- Page: ${document.title || 'Untitled'}`);
     lines.push(`- URL: ${location.href}`);
     lines.push(`- Exported: ${new Date().toISOString()}`);
@@ -2490,8 +2531,7 @@ export function createHost(
       }
     };
     let sections = 0;
-    for (const block of blocks) {
-      if (!block.messages.some((message) => message.role === 'user')) continue;
+    for (const block of studyBlocks) {
       sections += 1;
       lines.push('', `## ${sections}. ${block.name}`);
       chatMeta(block.messages);
@@ -2499,13 +2539,11 @@ export function createHost(
         lines.push('', `_Images (text only): ${block.anchor.images.join(' \u00b7 ')}_`);
       transcript(block.messages);
     }
-    const talked = talkMessages.some((message) => message.role === 'user');
     if (talked) {
       lines.push('', '## Reading chat');
       chatMeta(talkMessages);
       transcript(talkMessages);
     }
-    if (!sections && !talked) return '';
     return `${lines.join('\n').trimEnd()}\n`;
   }
   const STUDY_REQUESTS: Record<'keywords' | 'summarize', { ask: string; progress: string }> = {
@@ -2824,6 +2862,7 @@ export function createHost(
       return;
     }
     pendingCapture = capture;
+    lastSelection = { text: capture.text, at: Date.now() };
     askHost.style.setProperty('display', 'block', 'important');
     const lines = capture.range.getClientRects();
     const line = lines.length ? lines[lines.length - 1] : capture.range.getBoundingClientRect();

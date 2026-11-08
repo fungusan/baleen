@@ -4,7 +4,14 @@ import { readSettings, watchSettings } from '../shared/settings';
 import { deleteNote, readNotes, saveNote, watchNotes, type NoteEntry } from '../shared/notes';
 import { MODEL_META, MODEL_SHORT, MODELS, PROVIDER_HOSTS, PROVIDER_LABELS, providerForModel } from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
-import type { Model, Provider, Settings, SettingsPatch, Theme } from '../shared/types';
+import type {
+  ChatExportScope,
+  Model,
+  Provider,
+  Settings,
+  SettingsPatch,
+  Theme,
+} from '../shared/types';
 
 const must = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const app = must('#app');
@@ -33,20 +40,27 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <div class="row"><span class="label" id="key-label">API key</span><button id="key-edit" class="chip-button" type="button" aria-labelledby="key-label" aria-expanded="false">Add</button></div>
 <form id="key-form" class="key-form" hidden><label class="sr-only" for="key-input">API key</label><div class="key-line"><input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"><button type="submit" class="primary">Save</button></div><div class="key-foot"><p class="hint" id="key-hint">Stored on this device. Sent only to the selected provider when you ask.</p><button type="button" id="key-cancel" class="text-button">Cancel</button><button type="button" id="key-remove" class="text-button" hidden>Remove</button></div></form>
 <div class="row"><span class="label" id="model-label">Model</span><div class="dropdown" id="model-dropdown"><button id="model-button" class="field" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-label"><span id="model-icon" class="model-glyph" aria-hidden="true"></span><span id="model-value">DeepSeek V4 Pro</span><span class="chev" aria-hidden="true"></span></button><div id="model-menu" class="model-menu" role="listbox" aria-labelledby="model-label" hidden>${modelOptionsHTML}</div></div></div>
+<button id="memory-open" class="row link-row" type="button" aria-controls="view-memory"><span class="label">Memory</span><span id="notes-count" class="count"></span><span class="chev" aria-hidden="true"></span></button>
 </section>
 <p class="sec">Reading</p>
-<button id="study-open" class="study-row" type="button" aria-controls="view-study"><span class="booktile" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.6C10.5 5.1 8.6 4.4 6 4.4H3.6v13.1H6c2.6 0 4.5.7 6 2.2 1.5-1.5 3.4-2.2 6-2.2h2.4V4.4H18c-2.6 0-4.5.7-6 2.2Z"/><path d="M12 6.6v13.1"/></g></svg></span><span class="study-text"><strong>Study</strong><small id="study-hint">Page tools &amp; notes</small></span><span class="chev" aria-hidden="true"></span></button>
+<button id="study-open" class="study-row" type="button" aria-controls="view-study"><span class="booktile" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.6C10.5 5.1 8.6 4.4 6 4.4H3.6v13.1H6c2.6 0 4.5.7 6 2.2 1.5-1.5 3.4-2.2 6-2.2h2.4V4.4H18c-2.6 0-4.5.7-6 2.2Z"/><path d="M12 6.6v13.1"/></g></svg></span><span class="study-text"><strong>Study</strong><small id="study-hint">Page tools &amp; chats</small></span><span class="chev" aria-hidden="true"></span></button>
+</main>
+<main id="view-memory" class="view" hidden>
+<div class="view-head"><button id="memory-back" class="back" type="button"><span class="chev" aria-hidden="true"></span>Back</button><span class="view-title">Memory</span><button id="note-add" class="chip-button memory-add" type="button" aria-expanded="false" aria-controls="note-form">Add</button></div>
+<form id="note-form" class="note-form" hidden><p id="note-form-title" class="note-form-title">New memory</p><div class="note-line"><label class="sr-only" for="note-key">Memory key</label><input id="note-key" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Key"><label class="sr-only" for="note-value">Memory value</label><textarea id="note-value" rows="3" maxlength="2000" placeholder="Value — a line or a short paragraph"></textarea></div><div class="actions"><button id="note-save" class="primary" type="submit">Add memory</button><button id="note-cancel" class="text-button" type="button">Cancel</button></div></form>
+<ul id="note-list" class="notes"></ul>
+<div id="note-pager" class="notes-pager" hidden><button id="note-prev" class="text-button" type="button">Prev</button><span id="note-page" class="count"></span><button id="note-next" class="text-button" type="button">Next</button></div>
+<p id="notes-empty" class="hint">Baleen remembers what you tell her.</p>
 </main>
 <main id="view-study" class="view" hidden>
 <div class="view-head"><button id="study-back" class="back" type="button"><span class="chev" aria-hidden="true"></span>Back</button><span class="view-title">Study</span></div>
 <div class="actions"><button id="study-summarize" class="primary" type="button">Summarize</button><button id="study-keywords" class="secondary" type="button">Keywords</button></div>
 <p id="study-status" class="hint" role="status">${STUDY_HINT}</p>
 <p class="sec">Chats</p>
-<section class="card list" aria-label="Chats"><button id="export-chats" class="tool-row" type="button">Export chats</button><button id="clear-talk" class="tool-row" type="button">Clear reading chat</button><button id="close-chats" class="tool-row" type="button">Close all chats</button></section>
-<div class="notes-head"><p class="sec">Notes<span id="notes-count" class="count"></span></p><button id="note-add" class="chip-button" type="button" aria-expanded="false" aria-controls="note-form">Add</button></div>
-<form id="note-form" class="note-form" hidden><div class="note-line"><label class="sr-only" for="note-key">Note key</label><input id="note-key" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Key"><label class="sr-only" for="note-value">Note value</label><input id="note-value" type="text" maxlength="2000" autocomplete="off" spellcheck="false" placeholder="Value"></div><div class="actions"><button id="note-save" class="primary" type="submit">Add note</button><button id="note-cancel" class="text-button" type="button">Cancel</button></div></form>
-<ul id="note-list" class="notes"></ul>
-<p id="notes-empty" class="hint">Ask Baleen to remember something and it lands here.</p>
+<section class="card list chat-menu" aria-label="Chats">
+<div class="chat-group"><button id="reading-toggle" class="chat-toggle" type="button" aria-expanded="false" aria-controls="reading-actions"><span>Reading chat</span><span class="chev" aria-hidden="true"></span></button><div id="reading-actions" class="chat-actions" hidden><button id="export-talk" class="chat-action" type="button" aria-label="Export reading chat">Export</button><button id="clear-talk" class="chat-action" type="button" aria-label="Clear reading chat">Clear</button></div></div>
+<div class="chat-group"><button id="study-toggle" class="chat-toggle" type="button" aria-expanded="false" aria-controls="study-actions"><span>Study chats</span><span class="chev" aria-hidden="true"></span></button><div id="study-actions" class="chat-actions" hidden><button id="export-chats" class="chat-action" type="button" aria-label="Export study chats">Export</button><button id="close-chats" class="chat-action" type="button" aria-label="Close study chats">Close</button></div></div>
+</section>
 </main>
 <p id="status" role="status"></p>
 <footer><span>Alt/Option + Shift + G toggles</span><span class="links"><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="https://www.pixiv.net/en/artworks/148186519" target="_blank" rel="noreferrer" title="Character art by ZipZipPipe, based on 上善's whale-girl OC (CC BY-NC-SA 4.0)">Art: ZipZipPipe</a></span></footer>`;
@@ -58,14 +72,16 @@ async function main() {
     node.textContent = text;
     node.dataset.tone = tone;
   };
-  /** Study is the one second level; every preference lives on the main one. */
+  /** Study and Memory each open one level deep; every preference lives on the main one. */
   const views = {
     main: must<HTMLElement>('#view-main'),
     study: must<HTMLElement>('#view-study'),
+    memory: must<HTMLElement>('#view-memory'),
   };
   type ViewName = keyof typeof views;
   let currentView: ViewName = 'main';
   const studyOpen = must<HTMLButtonElement>('#study-open');
+  const memoryOpen = must<HTMLButtonElement>('#memory-open');
   function showView(view: ViewName) {
     currentView = view;
     for (const [name, node] of Object.entries(views)) node.hidden = name !== view;
@@ -75,10 +91,12 @@ async function main() {
     // An old page error should not greet a fresh visit to Study.
     must('#study-status').textContent = STUDY_HINT;
   }
+  const returnFocus = { study: studyOpen, memory: memoryOpen };
   function goBack() {
     if (currentView === 'main') return;
+    const opener = returnFocus[currentView];
     showView('main');
-    studyOpen.focus();
+    opener.focus();
   }
   studyOpen.onclick = () => {
     showView('study');
@@ -86,6 +104,16 @@ async function main() {
     must<HTMLButtonElement>('#study-back').focus();
   };
   must<HTMLButtonElement>('#study-back').onclick = goBack;
+  memoryOpen.onclick = () => {
+    notePageIndex = 0;
+    showView('memory');
+    void loadNotes();
+    must<HTMLButtonElement>('#memory-back').focus();
+  };
+  must<HTMLButtonElement>('#memory-back').onclick = () => {
+    if (!noteForm.hidden) stopEdit(false);
+    goBack();
+  };
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     if (!modelMenu.hidden) {
@@ -94,7 +122,7 @@ async function main() {
       modelButton.focus();
       return;
     }
-    // The composer is the innermost level, so Escape closes it before Study.
+    // The composer is the innermost level, so Escape closes it before the page it sits on.
     if (!noteForm.hidden) {
       event.preventDefault();
       stopEdit();
@@ -290,11 +318,11 @@ async function main() {
   }
   must<HTMLButtonElement>('#study-keywords').onclick = () => void study('keywords');
   must<HTMLButtonElement>('#study-summarize').onclick = () => void study('summarize');
-  function downloadMarkdown(text: string) {
+  function downloadMarkdown(text: string, name: string) {
     const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `baleen-chats-${new Date().toISOString().slice(0, 10)}.md`;
+    link.download = `${name}-${new Date().toISOString().slice(0, 10)}.md`;
     link.rel = 'noopener';
     link.style.display = 'none';
     document.body.append(link);
@@ -302,20 +330,26 @@ async function main() {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
-  must<HTMLButtonElement>('#export-chats').onclick = () => {
-    void pageCall<{ text: string }>({ type: 'fg:export-chats' })
+  function exportChats(scope: ChatExportScope) {
+    void pageCall<{ text: string }>({ type: 'fg:export-chats', scope })
       .then(({ text }) => {
         if (!text) {
-          status('No questions to export on this page yet.');
+          status(
+            scope === 'talk'
+              ? 'No reading chat to export yet.'
+              : 'No study chats to export yet.',
+          );
           return;
         }
-        downloadMarkdown(text);
+        downloadMarkdown(text, scope === 'talk' ? 'baleen-reading-chat' : 'baleen-study-chats');
         status('Saved as Markdown.');
       })
       .catch((error) => {
         status(error instanceof Error ? error.message : 'Could not export.', 'error');
       });
-  };
+  }
+  must<HTMLButtonElement>('#export-talk').onclick = () => exportChats('talk');
+  must<HTMLButtonElement>('#export-chats').onclick = () => exportChats('study');
   must<HTMLButtonElement>('#clear-talk').onclick = () => {
     void pageCall<{ count: number }>({ type: 'fg:clear-talk' })
       .then(({ count }) => {
@@ -333,29 +367,55 @@ async function main() {
       .then(({ count }) => {
         status(
           count
-            ? `Closed ${count} conversation${count === 1 ? '' : 's'}.`
-            : 'No conversations were open.',
+            ? `Closed ${count} study chat${count === 1 ? '' : 's'}.`
+            : 'No study chats were open.',
         );
       })
       .catch((error) => {
-        status(error instanceof Error ? error.message : 'Could not close chats.', 'error');
+        status(error instanceof Error ? error.message : 'Could not close study chats.', 'error');
       });
   };
+  // Two choices, each revealing its own pair of actions, keep the level to two rows.
+  const readingToggle = must<HTMLButtonElement>('#reading-toggle');
+  const studyToggle = must<HTMLButtonElement>('#study-toggle');
+  const readingActions = must('#reading-actions');
+  const studyActions = must('#study-actions');
+  function setChatGroup(open: 'reading' | 'study' | null) {
+    readingToggle.setAttribute('aria-expanded', String(open === 'reading'));
+    studyToggle.setAttribute('aria-expanded', String(open === 'study'));
+    readingActions.hidden = open !== 'reading';
+    studyActions.hidden = open !== 'study';
+  }
+  const toggleChatGroup = (group: 'reading' | 'study') => {
+    const button = group === 'reading' ? readingToggle : studyToggle;
+    setChatGroup(button.getAttribute('aria-expanded') === 'true' ? null : group);
+  };
+  readingToggle.onclick = () => toggleChatGroup('reading');
+  studyToggle.onclick = () => toggleChatGroup('study');
 
   const noteForm = must<HTMLFormElement>('#note-form');
   const noteKey = must<HTMLInputElement>('#note-key');
-  const noteValue = must<HTMLInputElement>('#note-value');
+  const noteValue = must<HTMLTextAreaElement>('#note-value');
   const noteSave = must<HTMLButtonElement>('#note-save');
+  const noteFormTitle = must('#note-form-title');
   const noteCancel = must<HTMLButtonElement>('#note-cancel');
   const noteAdd = must<HTMLButtonElement>('#note-add');
   const noteList = must<HTMLUListElement>('#note-list');
   const notesEmpty = must('#notes-empty');
   const notesCount = must('#notes-count');
+  const notePager = must('#note-pager');
+  const notePage = must('#note-page');
+  const notePrev = must<HTMLButtonElement>('#note-prev');
+  const noteNext = must<HTMLButtonElement>('#note-next');
+  const PAGE = 5;
   const PENCIL =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.2 2.5 13.5 4.8 6.2 12.1l-3 .8.8-3Z"/><path d="m10 3.7 2.3 2.3"/></svg>';
   const TRASH =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.9 4.4h10.2"/><path d="M6.3 4.4V2.9h3.4v1.5"/><path d="m4.4 4.4.6 8.7h6l.6-8.7"/><path d="M6.7 6.8v4M9.3 6.8v4"/></svg>';
   let editing: string | null = null;
+  let noteTotal = 0;
+  let notePageIndex = 0;
+  let loadedNotes: NoteEntry[] = [];
   function noteRow(note: NoteEntry): HTMLLIElement {
     const row = document.createElement('li');
     const text = document.createElement('div');
@@ -364,26 +424,37 @@ async function main() {
     key.textContent = note.key;
     const value = document.createElement('p');
     value.textContent = note.value;
-    text.append(key, value);
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'note-value-more';
+    more.textContent = 'More';
+    more.setAttribute('aria-expanded', 'false');
+    more.hidden = true;
+    more.onclick = () => {
+      const open = value.classList.toggle('open');
+      more.textContent = open ? 'Less' : 'More';
+      more.setAttribute('aria-expanded', String(open));
+    };
+    text.append(key, value, more);
     const ops = document.createElement('div');
     ops.className = 'note-ops';
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.className = 'icon-button';
-    edit.title = 'Edit note';
-    edit.setAttribute('aria-label', `Edit note ${note.key}`);
+    edit.title = 'Edit memory';
+    edit.setAttribute('aria-label', `Edit memory ${note.key}`);
     edit.innerHTML = PENCIL;
     edit.onclick = () => startEdit(note);
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'icon-button danger';
-    remove.title = 'Delete note';
-    remove.setAttribute('aria-label', `Delete note ${note.key}`);
+    remove.title = 'Delete memory';
+    remove.setAttribute('aria-label', `Delete memory ${note.key}`);
     remove.innerHTML = TRASH;
     remove.onclick = () => {
       void deleteNote(note.key)
         .then(() => {
-          status('Note deleted.');
+          status('Memory deleted.');
           return loadNotes();
         })
         .catch(report);
@@ -392,21 +463,50 @@ async function main() {
     row.append(text, ops);
     return row;
   }
+  function renderList(entries: NoteEntry[]) {
+    loadedNotes = entries;
+    const pages = Math.max(1, Math.ceil(entries.length / PAGE));
+    notePageIndex = Math.min(notePageIndex, pages - 1);
+    const start = notePageIndex * PAGE;
+    const shown = entries.slice(start, start + PAGE);
+    noteList.replaceChildren(...shown.map(noteRow));
+    const paged = entries.length > PAGE;
+    notePager.hidden = !paged || !noteForm.hidden;
+    if (!paged) {
+      notePage.textContent = '';
+      return;
+    }
+    notePage.textContent = `${start + 1}\u2013${start + shown.length} of ${entries.length}`;
+    notePrev.disabled = notePageIndex === 0;
+    noteNext.disabled = notePageIndex >= pages - 1;
+  }
+  /** Only show More where the two-line clamp really hides something. */
+  function fitNoteClamps() {
+    for (const row of noteList.children) {
+      const value = row.querySelector<HTMLParagraphElement>('.note-text p');
+      const more = row.querySelector<HTMLButtonElement>('.note-value-more');
+      if (!value || !more || value.classList.contains('open')) continue;
+      more.hidden = value.scrollHeight <= value.clientHeight + 1;
+    }
+  }
   function showNoteForm(show: boolean) {
     noteForm.hidden = !show;
-    // While composing, the composer is the whole Notes section: no redundant Add,
-    // no list to scroll past, and Cancel owns the way out.
+    // While composing, the composer is the whole panel: no redundant Add, no list to
+    // scroll past, and Cancel owns the way out.
     noteAdd.hidden = show;
     noteList.hidden = show;
-    notesEmpty.hidden = show || noteList.children.length > 0;
+    notePager.hidden = show || noteTotal <= PAGE;
+    notesEmpty.hidden = show || noteTotal > 0;
     noteAdd.setAttribute('aria-expanded', String(show));
+    if (show) noteForm.scrollIntoView({ block: 'nearest' });
   }
   function startAdd() {
     editing = null;
     noteKey.disabled = false;
     noteKey.value = '';
     noteValue.value = '';
-    noteSave.textContent = 'Add note';
+    noteFormTitle.textContent = 'New memory';
+    noteSave.textContent = 'Add memory';
     showNoteForm(true);
     noteKey.focus();
   }
@@ -415,57 +515,68 @@ async function main() {
     noteKey.value = note.key;
     noteKey.disabled = true;
     noteValue.value = note.value;
-    noteSave.textContent = 'Save note';
+    noteFormTitle.textContent = 'Edit memory';
+    noteSave.textContent = 'Save memory';
     showNoteForm(true);
     noteValue.focus();
   }
-  function stopEdit() {
+  function stopEdit(refocus = true) {
     editing = null;
     noteKey.disabled = false;
     noteKey.value = '';
     noteValue.value = '';
-    noteSave.textContent = 'Add note';
+    noteFormTitle.textContent = 'New memory';
+    noteSave.textContent = 'Add memory';
     showNoteForm(false);
     // The form just closed under the keyboard user, so bring focus back to its opener.
-    noteAdd.focus();
+    if (refocus) noteAdd.focus();
   }
   async function loadNotes() {
     const notes = await readNotes();
-    noteList.replaceChildren(...notes.map(noteRow));
+    noteTotal = notes.length;
+    renderList(notes);
+    if (!noteForm.hidden) noteList.hidden = true;
     notesEmpty.hidden = notes.length > 0 || !noteForm.hidden;
     notesCount.textContent = notes.length ? String(notes.length) : '';
-    // The count on the Study row shows saved notes without opening the level.
-    must('#study-hint').textContent = notes.length
-      ? `Page tools · ${notes.length} note${notes.length === 1 ? '' : 's'}`
-      : 'Page tools & notes';
-    if (editing && !notes.some((note) => note.key === editing)) stopEdit();
+    if (editing && !notes.some((note) => note.key === editing)) stopEdit(false);
+    if (currentView === 'memory') requestAnimationFrame(fitNoteClamps);
   }
   noteAdd.onclick = startAdd;
+  function turnPage(step: number) {
+    notePageIndex += step;
+    renderList(loadedNotes);
+    requestAnimationFrame(fitNoteClamps);
+  }
+  notePrev.onclick = () => {
+    if (notePageIndex > 0) turnPage(-1);
+  };
+  noteNext.onclick = () => turnPage(1);
   noteForm.onsubmit = (event) => {
     event.preventDefault();
     const key = (editing ?? noteKey.value).trim();
     const value = noteValue.value.trim();
     if (!key) {
-      status('Give the note a key first.', 'error');
+      status('Give the memory a key first.', 'error');
       return;
     }
     if (!value && editing == null) {
-      status('Give the note a value first.', 'error');
+      status('Give the memory a value first.', 'error');
       return;
     }
     void saveNote(key, value)
       .then((saved) => {
         if (!saved) {
-          status('Could not save that note.', 'error');
+          status('Could not save that memory.', 'error');
           return;
         }
         stopEdit();
-        status(value ? 'Note saved.' : 'Note deleted.');
+        status(value ? 'Memory saved.' : 'Memory deleted.');
+        notePageIndex = 0;
         return loadNotes();
       })
       .catch(report);
   };
-  noteCancel.onclick = stopEdit;
+  noteCancel.onclick = () => stopEdit();
   await loadNotes();
   // A note Baleen adds from a page chat appears here without reopening the popup.
   const unwatchNotes = watchNotes(() => void loadNotes());

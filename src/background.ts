@@ -12,13 +12,14 @@ const MAX_PROMPT = 2000;
 const MAX_IMAGES = 6;
 const MAX_HISTORY = 6;
 const MAX_HISTORY_ITEM = 2000;
-const MAX_NOTES = 3000;
+const MAX_NOTES = 4000;
 const RAW_TTL = 15_000;
 /** PDF URLs the reader was explicitly asked to hand back to Chrome's own viewer. */
 const rawBypass = new Map<string, number>();
 const TIMEOUTS: Record<Model, number> = {
-  'deepseek-flash': 90_000,
-  'deepseek-v4-pro': 120_000,
+  // The empty-answer path may retry once without thinking, so leave room for two calls.
+  'deepseek-flash': 150_000,
+  'deepseek-v4-pro': 180_000,
   'kimi-k3.1-pro': 180_000,
   'kimi-k3': 180_000,
 };

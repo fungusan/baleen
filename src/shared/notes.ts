@@ -1,9 +1,9 @@
 import { isExtension } from '../shared/settings';
 
 /**
- * Reader notes: a small, editable key-value store shared by every tab and the popup. Keys name a
- * preference or a fact ("tone", "thesis"); values hold the text. Baleen reads them as context, but
- * never writes them: only the reader adds, edits or deletes an entry.
+ * Baleen's memory: one editable key-value store shared by every tab and the popup. She writes an
+ * entry when the reader asks her to remember something, or when their own messages reveal a durable
+ * preference, interest, goal, or personal fact. A value may hold a paragraph of related details.
  */
 export interface NoteEntry {
   key: string;
@@ -15,8 +15,8 @@ const NOTES_KEY = 'fungusan-gal.notes.v2';
 const MAX_NOTES = 100;
 const MAX_KEY = 60;
 const MAX_VALUE = 2000;
-/** How much of the notes reaches a chat request, newest keys first. */
-export const NOTES_BUDGET = 2400;
+/** How much of the memory reaches a chat request, newest keys first. */
+export const NOTES_BUDGET = 3000;
 
 const storage = () =>
   isExtension() && typeof chrome !== 'undefined' && chrome.storage?.local
@@ -32,7 +32,7 @@ function tidy(value: unknown, max: number): string {
 function entriesFrom(value: unknown): NoteEntry[] {
   if (!Array.isArray(value)) return [];
   const notes: NoteEntry[] = [];
-  for (const item of value.slice(0, MAX_NOTES)) {
+  for (const item of value) {
     if (!item || typeof item !== 'object') continue;
     const note = item as Partial<NoteEntry>;
     const key = tidy(note.key, MAX_KEY);
@@ -44,7 +44,18 @@ function entriesFrom(value: unknown): NoteEntry[] {
       at: typeof note.at === 'number' && Number.isFinite(note.at) ? note.at : 0,
     });
   }
-  return notes;
+  // Earlier builds kept reader notes and learned memory in two lists; they are one now, so the
+  // newest entry wins when the same key existed in both.
+  notes.sort((a, b) => b.at - a.at);
+  const seen = new Set<string>();
+  return notes
+    .filter((note) => {
+      const lower = note.key.toLowerCase();
+      if (seen.has(lower)) return false;
+      seen.add(lower);
+      return true;
+    })
+    .slice(0, MAX_NOTES);
 }
 
 async function readAll(): Promise<NoteEntry[]> {
@@ -61,7 +72,8 @@ async function writeAll(notes: NoteEntry[]): Promise<boolean> {
   const store = storage();
   if (!store) return false;
   try {
-    await store.set({ [NOTES_KEY]: notes.slice(0, MAX_NOTES) });
+    const next = [...notes].sort((a, b) => b.at - a.at).slice(0, MAX_NOTES);
+    await store.set({ [NOTES_KEY]: next });
     return true;
   } catch {
     return false;
@@ -80,7 +92,7 @@ export function readNotes(): Promise<NoteEntry[]> {
   return readAll();
 }
 
-/** Upserts by key (case-insensitive), so editing a note replaces it instead of duplicating it. */
+/** Upserts by key (case-insensitive), so editing or re-learning replaces instead of duplicating. */
 export async function saveNote(key: string, value: string): Promise<boolean> {
   const cleanKey = tidy(key, MAX_KEY);
   const cleanValue = tidy(value, MAX_VALUE);
@@ -89,8 +101,9 @@ export async function saveNote(key: string, value: string): Promise<boolean> {
     const notes = await readAll();
     const index = notes.findIndex((note) => note.key.toLowerCase() === cleanKey.toLowerCase());
     const next: NoteEntry = { key: cleanKey, value: cleanValue, at: Date.now() };
-    if (!cleanValue) notes.splice(index, 1);
-    else if (index >= 0) notes[index] = next;
+    if (!cleanValue) {
+      if (index >= 0) notes.splice(index, 1);
+    } else if (index >= 0) notes[index] = next;
     else notes.unshift(next);
     return writeAll(notes);
   });
@@ -101,56 +114,59 @@ export async function deleteNote(key: string): Promise<boolean> {
   if (!cleanKey) return false;
   return enqueue(async () => {
     const notes = await readAll();
-    return writeAll(
-      notes.filter((note) => note.key.toLowerCase() !== cleanKey.toLowerCase()),
-    );
+    return writeAll(notes.filter((note) => note.key.toLowerCase() !== cleanKey.toLowerCase()));
   });
 }
-
-/**
- * The hidden line a reply appends when the reader asks Baleen to remember something. It is split
- * off before the reply reaches a chat, so the marker never renders.
- */
-const NOTE_TAG = '[[BALEEN-NOTE]]';
 
 export interface NoteDraft {
   key: string;
   value: string;
 }
 
-/** True when the reader's own message asks for something to be remembered. */
-export function asksToRemember(prompt: unknown): boolean {
-  if (typeof prompt !== 'string' || !prompt.trim()) return false;
-  return /\b(?:remember|memorize|note|save|store|keep in mind|don'?t forget)\b/i.test(prompt);
+/**
+ * The hidden final line a reply may carry. It is split off before the reply reaches a chat, so the
+ * marker can never render.
+ */
+export interface TakenNote {
+  text: string;
+  note: NoteDraft | null;
 }
 
-/**
- * Separate a reply from its note directive. The marker is always removed from the visible answer,
- * even when the payload will not parse, so it can never leak into a chat or a transcript.
- */
-export function takeNote(reply: string): { text: string; note: NoteDraft | null } {
-  const at = reply.lastIndexOf(NOTE_TAG);
-  if (at < 0) return { text: reply, note: null };
-  const cleaned = reply.slice(0, at).trim();
-  const tail = reply.slice(at + NOTE_TAG.length);
-  const start = tail.indexOf('{');
-  const end = tail.lastIndexOf('}');
-  if (start < 0 || end <= start) return { text: cleaned || reply, note: null };
+function parseDraft(raw: string): NoteDraft | null {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
   try {
-    const raw = JSON.parse(tail.slice(start, end + 1)) as Record<string, unknown>;
-    const key = typeof raw.key === 'string' ? raw.key.replace(/\s+/g, ' ').trim() : '';
-    const value = typeof raw.value === 'string' ? raw.value.trim() : '';
-    if (!key || !value) return { text: cleaned || reply, note: null };
-    return {
-      text: cleaned || reply,
-      note: { key: key.slice(0, MAX_KEY), value: value.slice(0, MAX_VALUE) },
-    };
+    const value = JSON.parse(raw.slice(start, end + 1)) as Record<string, unknown>;
+    const key = typeof value.key === 'string' ? value.key.replace(/\s+/g, ' ').trim() : '';
+    const text = typeof value.value === 'string' ? value.value.trim() : '';
+    if (!key || !text) return null;
+    return { key: key.slice(0, MAX_KEY), value: text.slice(0, MAX_VALUE) };
   } catch {
-    return { text: cleaned || reply, note: null };
+    return null;
   }
 }
 
-/** Re-render a notes list when another surface (a page chat, another popup) writes one. */
+export function takeNote(reply: string): TakenNote {
+  let note: NoteDraft | null = null;
+  const kept: string[] = [];
+  for (const line of reply.split('\n')) {
+    // The memory marker is accepted too, so a reply from an older prompt still lands safely.
+    const match = line.match(/^\s*\[\[BALEEN-(?:NOTE|MEMORY)\]\]\s*(\{.*\})\s*$/);
+    if (!match) {
+      kept.push(line);
+      continue;
+    }
+    if (!note) note = parseDraft(match[1]);
+  }
+  let text = kept.join('\n').trim();
+  // A provider that puts the marker mid-sentence still must never leak it into the chat.
+  const leaked = text.search(/\[\[BALEEN-(?:NOTE|MEMORY)\]\]/);
+  if (leaked >= 0) text = text.slice(0, leaked).trim();
+  return { text, note };
+}
+
+/** Re-render the notes list when another surface (a page chat, another popup) writes one. */
 export function watchNotes(listener: () => void): () => void {
   if (!isExtension() || !chrome.storage?.onChanged) return () => {};
   const onChange = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
@@ -160,18 +176,26 @@ export function watchNotes(listener: () => void): () => void {
   return () => chrome.storage.onChanged.removeListener(onChange);
 }
 
-/** The notes block attached to conversational requests, bounded so a long list cannot crowd out
- * the page. Newest keys go first; each is rendered as one labelled entry. */
+/**
+ * The memory block attached to conversational requests, bounded so a long list cannot crowd out the
+ * page. Newest keys first; `contextBlock` supplies the surrounding label.
+ */
 export function notesContext(notes: NoteEntry[]): string {
   const ordered = [...notes].sort((a, b) => b.at - a.at);
   const lines: string[] = [];
   let used = 0;
   for (const note of ordered) {
-    const line = `${note.key}: ${note.value}`;
-    if (used + line.length > NOTES_BUDGET) continue;
-    lines.push(line);
-    used += line.length + 1;
-    if (used >= NOTES_BUDGET) break;
+    const line = `- ${note.key}: ${note.value.replace(/\s*\n\s*/g, ' ')}`;
+    const room = NOTES_BUDGET - used;
+    if (room <= 1) break;
+    if (line.length + 1 <= room) {
+      lines.push(line);
+      used += line.length + 1;
+      continue;
+    }
+    // A single long entry is clipped rather than dropped: the key still carries the context.
+    lines.push(`${line.slice(0, room - 2).trimEnd()}\u2026`);
+    break;
   }
   return lines.join('\n');
 }

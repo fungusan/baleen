@@ -322,13 +322,15 @@ h1 {
   flex: 1;
 }
 .key-line input:focus,
-.note-line input:focus {
+.note-line input:focus,
+.note-line textarea:focus {
   outline: none;
   border-color: var(--accent-line);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 .key-line input:disabled,
-.note-line input:disabled {
+.note-line input:disabled,
+.note-line textarea:disabled {
   color: var(--muted);
 }
 .key-line .primary {
@@ -603,14 +605,19 @@ h1 {
 #study-status:empty {
   display: none;
 }
-/* Chats — three full-width rows are calmer than a row of wrapping chips. */
+/* Chats — two choices, each revealing its own pair of actions. */
 .card.list {
   padding: 0;
   overflow: hidden;
 }
-.tool-row {
+.chat-group + .chat-group {
+  border-top: 1px solid var(--line);
+}
+.chat-toggle {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   width: 100%;
   height: 32px;
   padding: 0 12px;
@@ -620,13 +627,40 @@ h1 {
   text-align: left;
   transition: background 0.12s;
 }
-.tool-row:hover {
+.chat-toggle:hover {
   background: var(--sunken-hover);
 }
-.tool-row:focus-visible {
-  /* The card clips its corners, so the focus ring has to sit inside the row. */
+.chat-toggle:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--accent);
+}
+.chat-toggle .chev {
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+.chat-toggle[aria-expanded='true'] .chev {
+  transform: rotate(45deg);
+}
+.chat-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+.chat-action {
+  height: 26px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 10.5px;
+  color: var(--muted);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.chat-action:hover {
+  color: var(--ink);
+  border-color: var(--stone);
 }
 .text-button {
   display: inline-flex;
@@ -647,28 +681,55 @@ h1 {
   color: var(--ink);
   border-color: var(--stone);
 }
-
-/* Notes — a compact list, with the composer only open when adding or editing. */
-.notes-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 14px 1px 6px;
+.text-button:disabled {
+  color: var(--faint);
+  border-color: var(--line);
+  cursor: default;
 }
-.notes-head .sec {
+
+/* Memory — a Connection row opens its own page, five entries at a time. */
+.link-row {
+  justify-content: flex-start;
+  gap: 6px;
+  width: 100%;
+  color: var(--ink);
+  text-align: left;
+}
+.link-row .count {
   margin: 0;
 }
+.link-row .chev {
+  margin-left: auto;
+  transform: rotate(-45deg);
+}
+.link-row:hover .label {
+  color: var(--accent-text);
+}
+.link-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  border-radius: 6px;
+}
+.memory-add {
+  margin-left: auto;
+}
+.notes-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+.notes-pager .count {
+  margin: 0;
+}
+
+/* Notes — a compact list, with the composer only open when adding or editing. */
 .count {
   margin-left: 6px;
   font-size: 10.5px;
   color: var(--faint);
   font-variant-numeric: tabular-nums;
-}
-.notes-head .chip-button {
-  height: 26px;
-  margin-left: auto;
-  padding: 0 9px;
-  font-size: 10.5px;
 }
 .note-form {
   margin-bottom: 8px;
@@ -676,15 +737,32 @@ h1 {
   background: var(--sunken);
   border-radius: 10px;
 }
+.note-form-title {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--muted);
+}
 .note-line {
   display: flex;
+  flex-direction: column;
   gap: 6px;
 }
-#note-key {
-  flex: 0 0 84px;
+#note-key,
+#note-value {
+  width: 100%;
+  flex: none;
 }
 #note-value {
-  flex: 1;
+  height: auto;
+  min-height: 54px;
+  padding: 6px 9px;
+  resize: vertical;
+  font: 11.5px/1.5 var(--sans);
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 .note-form .actions {
   margin-top: 8px;
@@ -705,10 +783,8 @@ h1 {
   background: var(--bg);
 }
 .notes {
-  max-height: 180px;
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
   background: var(--sunken);
   border-radius: 10px;
@@ -738,11 +814,31 @@ h1 {
   overflow-wrap: anywhere;
 }
 .note-text p {
+  display: -webkit-box;
   margin: 1px 0 0;
+  overflow: hidden;
   font-size: 10.5px;
   line-height: 1.5;
   color: var(--muted);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.note-text p.open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+.note-value-more {
+  margin-top: 2px;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+.note-value-more:hover {
+  text-decoration: underline;
 }
 .note-ops {
   display: flex;
