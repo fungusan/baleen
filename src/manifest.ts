@@ -5,13 +5,18 @@ import { defineManifest } from '@crxjs/vite-plugin';
 export default defineManifest({
   manifest_version: 3,
   name: 'Baleen',
-  version: '1.2.0',
+  version: '1.3.0',
   description:
-    'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek API key.',
+    'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek or Kimi API key.',
   // 123 is the first Chrome with `light-dark()`; the UI tokens depend on it.
   minimum_chrome_version: '123',
   permissions: ['storage', 'scripting', 'webRequest'],
-  host_permissions: ['http://*/*', 'https://*/*', 'https://api.deepseek.com/*'],
+  host_permissions: [
+    'http://*/*',
+    'https://*/*',
+    'https://api.deepseek.com/*',
+    'https://api.moonshot.ai/*',
+  ],
   icons: {
     16: 'icons/16.png',
     32: 'icons/32.png',
@@ -39,6 +44,6 @@ export default defineManifest({
   },
   content_security_policy: {
     extension_pages:
-      "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; connect-src 'self' https://api.deepseek.com http://*:* https://*:*",
+      "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; connect-src 'self' https://api.deepseek.com https://api.moonshot.ai http://*:* https://*:*",
   },
 });

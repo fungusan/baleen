@@ -1,14 +1,18 @@
-import { DEFAULT_MODEL, DEEPSEEK_MODELS, THEMES } from './types';
-import type { DeepSeekModel, Settings, Theme } from './types';
+import { DEFAULT_MODEL, MODELS, THEMES } from './types';
+import type { Model, Settings, Theme } from './types';
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const model = (v: unknown): DeepSeekModel =>
-  typeof v === 'string' && (DEEPSEEK_MODELS as readonly string[]).includes(v)
-    ? (v as DeepSeekModel)
-    : DEFAULT_MODEL;
+// A retired model id still stored on an install maps to its surviving sibling instead of
+// quietly dropping the reader back to the default model.
+const LEGACY_MODELS: Record<string, Model> = { 'kimi-k3.1-pro-highspeed': 'kimi-k3.1-pro' };
+const model = (v: unknown): Model => {
+  if (typeof v !== 'string') return DEFAULT_MODEL;
+  const id = LEGACY_MODELS[v] ?? v;
+  return (MODELS as readonly string[]).includes(id) ? (id as Model) : DEFAULT_MODEL;
+};
 const theme = (v: unknown): Theme =>
   typeof v === 'string' && (THEMES as readonly string[]).includes(v) ? (v as Theme) : 'system';
 export function sanitizeSettings(raw: unknown): Settings {

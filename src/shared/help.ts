@@ -5,19 +5,19 @@
  */
 export const BALEEN_HELP = `About Baleen (internal documentation about this extension; trusted reference, not page data)
 
-Baleen is a reading companion extension. Its settings live in the toolbar popup: Appearance (Theme, Show on pages, Size, Animate) and Connection (DeepSeek API key, and model: Flash is fast, V4 Pro is stronger). Choose Study on the first level to open a second level with Keywords, Summarize, Export chats, Close all chats, and your Notes; Back returns to the settings.
+Baleen is a reading companion extension. Its settings live in the toolbar popup: Appearance (Theme, Show on pages, Size, Animate) and Connection (an API key and the model). Flash is fast and V4 Pro is stronger, both served by DeepSeek; Kimi K3.1 Pro is Kimi's flagship and Kimi K3 is the previous generation, both served by Kimi. Each provider keeps its own key, and the key row follows the model you pick. Choose Study on the first level to open a second level with Keywords, Summarize, Export chats, Clear reading chat, Close all chats, and your Notes; Back returns to the settings.
 
 Reading chat: click Baleen, or focus her and press Enter, then type and press Enter. She answers in one short sentence and the bubble fades; Escape or a click on the page closes it. She searches the page inside the tab and sends only matching passages, never the whole page. Alt/Option+Shift+G toggles Show on pages. While hidden, Ask Baleen and already-open section chats still work.
 
 Section chat: select text, then click the Ask Baleen pill (or press Alt/Option+E). The floating window stays beside its section, has its own model picker, resizes from its edges, collapses to a bookmark with the minus button, changes color from the dot, and renders Markdown and LaTeX with expandable thinking.
 
-Study level: Keywords extracts 5-8 research terms and Summarize gives 4-6 short bullets, both from the active page or the bundled PDF. Export chats downloads this page's section chats and reading chat as Markdown; Close all chats closes the section windows.
+Study level: Keywords extracts 5-8 research terms and Summarize gives 4-6 short bullets, both from the active page or the bundled PDF. Each opens as a chat pinned at Baleen's lower left without highlighting any text, and clicking the same action again reopens that chat instead of starting another. Export chats downloads this page's section chats and reading chat as Markdown, each chat with its model, provider, and message count; Clear reading chat empties her bubble conversation; Close all chats closes the section windows.
 
-Notes: add, edit, or delete key/value pairs such as "tone: Prefers concise answers". They are sent with both reading chat and section chat as reference. Ask Baleen to remember something and she adds a note to the same list; you can still edit or delete it. The API key and notes stay on the reader's device. Page text, the message, and notes go only to api.deepseek.com, and only when the reader sends a message or presses a Study action. Images are not uploaded; only alt text and captions are visible.
+Notes: add, edit, or delete key/value pairs such as "tone: Prefers concise answers". They are sent with both reading chat and section chat as reference. Ask Baleen to remember something and she adds a note to the same list; you can still edit or delete it. The API keys and notes stay on the reader's device. Page text, the message, and notes go only to the provider behind the selected model, api.deepseek.com for DeepSeek and api.moonshot.ai for Kimi, and only when the reader sends a message or presses a Study action. Images are not uploaded; only alt text and captions are visible.
 
 Limits: Baleen cannot click, scroll, or edit the page for the reader, and normal talk replies are deliberately one short sentence.
 
-Attribution: the character art is derivative fan art by ZipZipPipe (pixiv.net/artworks/148186519), based on 上善's whale-girl OC, licensed CC BY-NC-SA 4.0. It is non-commercial; the credit link is in the popup footer.`;
+Attribution: the character art is derivative fan art by ZipZipPipe (pixiv.net/artworks/148186519), based on 上善's whale-girl OC, licensed CC BY-NC-SA 4.0. The Kimi costume renders are also by ZipZipPipe; Kimi is a Moonshot AI character, used here as non-commercial fan art and not affiliated with or endorsed by Moonshot. It is non-commercial; the credit link is in the popup footer.`;
 
 const ASKS_ABOUT_BALEEN = [
   /\bbaleen\b/i,
@@ -30,13 +30,13 @@ const ASKS_ABOUT_BALEEN = [
   /\bwhat can you do\b/i,
   /\b(?:what|which) (?:theme|model|size) (?:are you|do you)\b/i,
   /\b(?:can|do) you (?:see|read|upload|send|share) (?:images|pictures|photos)\b/i,
-  /\b(?:ask baleen|export chats?|close all chats?)\b/i,
-  /\b(?:my|your|the deepseek) api key\b/i,
+  /\b(?:ask baleen|export chats?|close all chats?|clear (?:the |my )?reading chat)\b/i,
+  /\b(?:my|your|the (?:deepseek|kimi)) api key\b/i,
   /\bwhere (?:is|are|do i|can i)\b.{0,40}\b(?:api key|my notes|notes panel|settings?|size|theme|model|popup)\b/i,
-  /\b(?:what|how) does (?:keywords|summarize|study|export chats?|close all chats?) (?:do|work)\b/i,
+  /\b(?:what|how) does (?:keywords|summarize|study|export chats?|close all chats?|clear (?:the )?reading chat) (?:do|work)\b/i,
   /\b(?:alt|option)\s*\+\s*(?:shift\s*\+\s*)?[a-z]\b/i,
   /\bhow (?:do|can) (?:i|you) (?:use|hide|show|export|close|save|add|delete|remove|change|edit|turn|make|resize)\b.{0,40}\b(?:you|baleen|chats?|notes?|key|popup|settings?|shortcut)\b/i,
-  /\b(?:stay|stays|leave|leaves|sent|uploaded|stored|shared)\b.{0,30}\b(?:device|server|api\.deepseek|deepseek)\b/i,
+  /\b(?:stay|stays|leave|leaves|sent|uploaded|stored|shared)\b.{0,30}\b(?:device|server|api\.deepseek|deepseek|api\.moonshot|moonshot|kimi)\b/i,
 ];
 
 /** True when the message is about Baleen rather than the page; precision matters more than recall. */

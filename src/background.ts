@@ -1,12 +1,12 @@
-import { askDeepSeek } from './shared/deepseek';
+import { askModel } from './shared/chat';
 import { asksAboutBaleen } from './shared/help';
 import { readApiKey } from './shared/key';
 import { readSettings, sanitizeSettings, writeSettings } from './shared/settings';
-import { DEFAULT_MODEL, DEEPSEEK_MODELS } from './shared/types';
-import type { AskAction, AskResult, ChatTurn, DeepSeekModel } from './shared/types';
+import { DEFAULT_MODEL, MODELS, PROVIDER_LABELS, providerForModel } from './shared/types';
+import type { AskAction, AskResult, ChatTurn, Model } from './shared/types';
 
 const ASK_ACTIONS = new Set<string>(['chat', 'talk', 'summarize', 'keywords', 'title']);
-const MODELS = new Set<string>(DEEPSEEK_MODELS);
+const MODEL_IDS = new Set<string>(MODELS);
 const MAX_INPUT = 12000;
 const MAX_PROMPT = 2000;
 const MAX_IMAGES = 6;
@@ -16,9 +16,11 @@ const MAX_NOTES = 3000;
 const RAW_TTL = 15_000;
 /** PDF URLs the reader was explicitly asked to hand back to Chrome's own viewer. */
 const rawBypass = new Map<string, number>();
-const TIMEOUTS: Record<DeepSeekModel, number> = {
+const TIMEOUTS: Record<Model, number> = {
   'deepseek-flash': 90_000,
   'deepseek-v4-pro': 120_000,
+  'kimi-k3.1-pro': 180_000,
+  'kimi-k3': 180_000,
 };
 const object = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value)
@@ -49,12 +51,14 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
   if (!sender.tab && !fromExtension) throw new Error('Open this from a web page.');
   const request = object(raw);
   if (typeof request.action !== 'string' || !ASK_ACTIONS.has(request.action))
-    throw new Error('Unsupported DeepSeek action.');
+    throw new Error('Unsupported action.');
   const action = request.action as AskAction;
   const model =
-    typeof request.model === 'string' && MODELS.has(request.model)
-      ? (request.model as DeepSeekModel)
+    typeof request.model === 'string' && MODEL_IDS.has(request.model)
+      ? (request.model as Model)
       : DEFAULT_MODEL;
+  const provider = providerForModel(model);
+  const label = PROVIDER_LABELS[provider];
   const text = typeof request.text === 'string' ? request.text.trim() : '';
   if (text.length > MAX_INPUT) throw new Error('That passage is too long. Select less text.');
   const prompt =
@@ -78,12 +82,12 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
     typeof request.notes === 'string' ? request.notes.trim().slice(0, MAX_NOTES) : '';
   const conversational = action === 'chat' || action === 'talk';
   const thinking = conversational && request.thinking === true;
-  const key = await readApiKey();
-  if (!key) throw new Error('Add your DeepSeek API key in the popup first.');
+  const key = await readApiKey(provider);
+  if (!key) throw new Error(`Add your ${label} API key in the popup first.`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUTS[model]);
   try {
-    return await askDeepSeek(
+    return await askModel(
       key,
       {
         action,
@@ -100,9 +104,9 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError')
-      throw new Error('DeepSeek took too long. Try again.');
+      throw new Error(`${label} took too long. Try again.`);
     if (error instanceof TypeError)
-      throw new Error('Could not reach DeepSeek. Check your connection.');
+      throw new Error(`Could not reach ${label}. Check your connection.`);
     throw error;
   } finally {
     clearTimeout(timer);
