@@ -18,3 +18,9 @@ art-src/baleen/*
 art-src/baleen/raw/*
 !art-src/baleen/raw/master-idle-v2.png
 !art-src/baleen/raw/flash-master.png
+!art-src/baleen/raw/kimi-moonlit-master.png
+!art-src/baleen/raw/kimi-halloween-master.png
+!art-src/baleen/raw/kimi-moonlit-nobg.png
+!art-src/baleen/raw/kimi-moonlit-nobg.json
+!art-src/baleen/raw/kimi-halloween-nobg.png
+!art-src/baleen/raw/kimi-halloween-nobg.json

@@ -120,26 +120,62 @@ After any grade, re-run `art_qa.py` for the same-outfit gate and confirm the int
 
 ### 6. Export and ship
 
-Two supplied masters ship, and the chat model chooses which one is drawn:
+Four supplied masters ship, and the chat model chooses which one is drawn:
 
 | Art id | Shown for | Source | Export |
 | --- | --- | --- | --- |
 | `baleen` | DeepSeek V4 Pro | `raw/master-idle-v2.png` (maid cut-out) | 575x1040, aspect 0.553 |
 | `baleen-flash` | DeepSeek Flash | `raw/flash-master.png` (notebook drawing) | 543x1040, aspect 0.522 |
+| `baleen-kimi` | Kimi K3 | `raw/kimi-moonlit-nobg.png` (Leonardo `remove-bg` of `kimi-moonlit-master.png`) | 556x1040, aspect 0.5346 |
+| `baleen-kimi-halloween` | Kimi K3.1 Pro | `raw/kimi-halloween-nobg.png` (Leonardo `remove-bg` of the flattened cat master) | 559x1040, aspect 0.5375 |
 
 ```sh
-/usr/local/bin/python3 scripts/key_art.py <approved> <out>.webp \
-  --bg alpha --fit-h 1040 --max-w 800 --max-h 1200
+# Leonardo's remover (remove.bg's engine): sync, one fixed price, ephemeral result.
+node scripts/leonardo.mjs removebg art-src/baleen/raw/<page-master> \
+  --out art-src/baleen/raw/<name>-nobg.png
 ```
 
-Use `--bg alpha` for the maid cut-out and `--bg white` for the Flash drawing. The white keyer
-measures the page tone for edge unblending and protects large neutral enclosed whites (the notebook
-page) from the border flood, so paper and shaded fabric stay opaque.
+`removebg` posts to `/v2/generationssync` with model `remove-bg` and **bills $0.1047 per image**.
+The response is wrapped in `generateSync` and returns a temporary S3 URL (not `dataB64` unless
+asked), so the PNG must be saved in the same run — the ephemeral job cannot be fetched by id
+afterwards. A transparent master must be flattened onto white first (Pillow: paste the RGBA over
+white using its alpha) or the remover sees transparent black. The output keeps the master's
+resolution and has a clean, decontaminated matte: on the moonlit dress it removed the pale
+white-page rim that the local keyer left along dark silhouettes (edge offset +61 → −4 levels),
+and on the cat it tightened a very soft supplied alpha (partial pixels 21.8k → 7.7k).
 
-Trim at alpha > 0, export WebP, bump `ART_REVISION` in `src/shared/characters.ts`, `npm run build`,
-then verify in Chrome for Testing: `img.src` carries `?v=<version>-<revision>`, `naturalWidth` is
-the exported size, the drawn box aspect matches, and changing the model swaps the drawing. A file
-swap without the revision bump serves the cached image.
+Export the cut-out by trimming at alpha > 2 and resizing premultiplied (`convert("RGBa")`) to
+height 1040; do not run it through `key_art.py --bg alpha`, whose flat-white band pass targets
+white-composited cut-outs.
+
+```sh
+# Local keyer for the two DeepSeek masters:
+/usr/local/bin/python3 scripts/key_art.py <approved> <out>.webp \
+  --bg alpha --fit-h 1040 --max-w 800 --max-h 1200
+
+# White-page master with a soft ground shadow (still available for page masters):
+/usr/local/bin/python3 scripts/key_art.py art-src/baleen/raw/kimi-moonlit-master.png <out>.webp \
+  --bg white --floor-shadow --fit-h 1040 --max-w 800 --max-h 1200
+```
+
+Use `--bg alpha` for a render that already carries transparency (the maid cut-out and the pumpkin
+cat) and `--bg white` for a drawing on a page (the notebook, the moonlit flute). The white keyer
+measures the page tone and only accepts near-untinted pixels within four levels of it: on a
+white-haired drawing a looser threshold lets the flood tunnel through pale strands and punch holes
+in the hair. It also protects large neutral enclosed whites (the notebook page, the pale dress
+panels) from the border flood, so paper and shaded fabric stay opaque. Pass `--floor-shadow` only
+when the master has a soft ground shadow: it keys the neutral, dithered gradient by texture and
+connectivity (including the part cropped by the bottom edge), removes isolated bright flecks, and
+leaves navy boots and white clothing untouched.
+
+`key_art.py` composites the figure onto an 800x1200 transparent canvas, so the raw WebP is *not*
+the shipped aspect. Trim at alpha > 2 and re-save before recording the size; otherwise the overlay
+box includes empty padding and the bubble inset is wrong.
+
+Bump `ART_REVISION` in `src/shared/characters.ts`, `npm run build`, then verify in Chrome for
+Testing: `img.src` carries `?v=<version>-<revision>`, `naturalWidth` is the exported size, the drawn
+box aspect matches, and changing the model swaps the drawing. A file swap without the revision bump
+serves the cached image.
 
 ### 7. Provenance
 
@@ -156,6 +192,7 @@ ship.
 | `openai/gpt-image-2.5-flare` | 1344x2016 | $0.1988 | outfit fidelity, pose change | ignores numeric proportions, glossy stocking film, tail can detach |
 | `openai/gpt-image-2.5-sunburst` | 1344x2016 | $0.1988 | same as flare | head detail ×0.74 vs master on the last test |
 | `bfl/flux-3-image` | 1680x2512 | $0.1465 | strand-level hair | needs `--plain-refs`, limited sizes |
+| `remove-bg` | source size | $0.1047 | production matte for supplied page masters | sync + ephemeral; save the result immediately |
 
 Prices are per image, from this account's records; check the live catalog before quoting. A raw GPT
 call defaults to `quantity: 4`; the wrapper always sends `quantity: 1` unless `--quantity` is given,
@@ -171,6 +208,8 @@ The character is derivative fan art:
 
 - DeepSeek 娘化 ("AI娘化") by **ZipZipPipe** — <https://www.pixiv.net/en/artworks/148186519>.
   Terms stated by the artist: credit the author, no commercial use.
+- The moonlit flute and pumpkin cat Kimi costumes are also ZipZipPipe renders. Kimi is a Moonshot AI
+  character: non-commercial fan art only, with no affiliation or endorsement implied.
 - Original whale-girl OC 溟月 by **上善** — <https://www.pixiv.net/en/users/62155430>, reused under
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 

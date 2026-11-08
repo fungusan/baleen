@@ -6,6 +6,7 @@
 //   LEONARDO_KEY=... node scripts/leonardo.mjs image --ref ref.jpg --prompt "..." --out out.jpg
 //   LEONARDO_KEY=... node scripts/leonardo.mjs gemini --ref ref.jpg --prompt-file p.txt --out out.jpg
 //   LEONARDO_KEY=... node scripts/leonardo.mjs gemini --ref ref.png --transparency --quantity 4 --prompt-file p.txt --out out.png
+//   LEONARDO_KEY=... node scripts/leonardo.mjs removebg page-master.png --out cutout.png
 //
 // Boolean flags (--transparency, --plain-refs, --force) take no value, so they may appear anywhere.
 //
@@ -278,6 +279,49 @@ async function gemini({
   );
 }
 
+// remove.bg's engine now runs on Leonardo's sync endpoint. It returns a cut-out PNG: one POST,
+// no polling, one fixed price per image (the `cost` field in the response is authoritative).
+async function removeBackground({ file, out }) {
+  const id = await upload(file);
+  const res = await fetch(`${API2}/generationssync`, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      authorization: `Bearer ${KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'remove-bg',
+      public: false,
+      ephemeral: true,
+      parameters: {
+        format: 'png',
+        guidances: { image_reference: [{ image: { id, type: 'UPLOADED' } }] },
+      },
+    }),
+  });
+  const body = await res.json();
+  if (!res.ok) fail(`remove-bg ${res.status} ${JSON.stringify(body).slice(0, 600)}`);
+  const job = body.generateSync ?? body;
+  const result = job.results?.[0];
+  if (!result) fail(`remove-bg returned no result: ${JSON.stringify(body).slice(0, 600)}`);
+  const image = result.dataB64
+    ? Buffer.from(result.dataB64, 'base64')
+    : Buffer.from(await (await fetch(result.url)).arrayBuffer());
+  await mkdir(resolve(out, '..'), { recursive: true });
+  await writeFile(out, image);
+  const cost = job.cost?.amount ?? body.cost?.amount ?? '?';
+  await writeFile(
+    out.replace(/\.[^.]+$/, '.json'),
+    JSON.stringify(
+      { model: 'remove-bg', id: job.id ?? null, source: file, imageId: id, cost, unit: job.cost?.unit, output: out },
+      null,
+      2,
+    ),
+  );
+  console.log(`saved ${out} ${image.length} bytes $${cost}`);
+}
+
 const BOOLEAN_FLAGS = new Set(['transparency', 'plain-refs', 'force']);
 
 function args(argv) {
@@ -340,6 +384,13 @@ if (cli._[0] === 'claude') {
     quantity: Number(cli.quantity ?? 1),
     transparency: cli.transparency === true,
   });
+} else if (cli._[0] === 'removebg') {
+  const src = cli._[1];
+  if (!src || !cli.out) fail('removebg needs a source path and --out out.png');
+  if (!cli.force && (await readFile(cli.out).catch(() => null))) {
+    fail(`${cli.out} already exists; pass --force to overwrite`);
+  }
+  await removeBackground({ file: src, out: cli.out });
 } else if (cli._[0] === 'image') {
   if ((!cli.ref && !cli.init) || !cli.prompt || !cli.out) fail('image needs --init or --ref, --prompt and --out');
   await request({
@@ -359,6 +410,7 @@ if (cli._[0] === 'claude') {
     'usage: leonardo.mjs claude <state|all> [--ref sample.jpg] [--init-strength 0.55] | ' +
       'leonardo.mjs gemini --refs sheet.jpg=HIGH,face.jpg=HIGH,pose.jpg=MID [--seed 1234] [--quantity 4] [--transparency] --prompt-file p.txt --out out.jpg | ' +
       'leonardo.mjs gemini --ref ref.jpg [--style-ref style.jpg] [--face-ref face.jpg] --prompt-file p.txt --out out.jpg | ' +
-      'leonardo.mjs image --init ... --prompt ... --out ...',
+      'leonardo.mjs image --init ... --prompt ... --out ... | ' +
+      'leonardo.mjs removebg src.png --out cutout.png',
   );
 }

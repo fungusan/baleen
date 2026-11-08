@@ -1,0 +1,9 @@
+{
+  "model": "remove-bg",
+  "id": "1f1db058-a68a-67f0-96b8-6c3cb407d0c7",
+  "source": "/tmp/kimi-halloween-flat.png",
+  "imageId": "97b52935-3e68-44e0-aec8-22d6addfaed2",
+  "cost": "0.1047",
+  "unit": "DOLLARS",
+  "output": "art-src/baleen/raw/kimi-halloween-nobg.png"
+}

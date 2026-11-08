@@ -4,15 +4,8 @@ import type { CharacterId, Look } from '../../shared/types';
 import characterCSS from './character.css?inline';
 export { characterCSS };
 
-const emotes: Record<Look, string> = {
-  idle: '',
-  listen: '?',
-  thinking: '···',
-  speak: '',
-  happy: '♡',
-  sad: '…',
-  rest: 'z z',
-};
+/** Only one status mark survives: the heart she shows when pleased with the exchange. */
+const HEART = '\u2661';
 
 /** The idle render with a transparent background; every look is CSS on this one image. */
 export function createCharacter(id: CharacterId) {
@@ -44,16 +37,13 @@ export function createCharacter(id: CharacterId) {
     if (value === look) return;
     look = value;
     element.dataset.pose = value;
-    emote.textContent = emotes[value];
+    emote.textContent = value === 'happy' ? HEART : '';
   }
   function setCharacter(value: CharacterId) {
     if (element.dataset.character === value) return;
     const character = characterById(value);
     element.dataset.character = value;
     element.style.setProperty('--accent', character.accent);
-    element.style.setProperty('--art-top', String(character.inset.top));
-    element.style.setProperty('--art-right', String(character.inset.right));
-    element.style.setProperty('--art-lift', `${character.lift}px`);
     element.setAttribute('aria-label', character.name);
     image.src = source(value);
     image.alt = character.name;

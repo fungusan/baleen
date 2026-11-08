@@ -2,14 +2,19 @@
 """Key a character render to alpha and export the shipped sizes.
 
 Three backgrounds are supported. White masters (#fefefe) use a border-connected flood: only white
-touching the image border is background, so white clothing and pale hair stay opaque. Green-screen
-renders use the green dominance over the other channels, which naturally keys enclosed pockets
-between limbs. Edge pixels are unblended from the measured background colour before the final
-alpha is applied, which removes the fringe an ordinary chroma key leaves behind. A render that
-already carries transparency is used as-is (`--bg alpha`), with no unblending.
+touching the image border is background, so white clothing and pale hair stay opaque. The page tone
+is measured, and a pixel must sit within four levels of it and carry almost no tint to count as
+page; on a white-haired drawing a looser threshold lets the flood tunnel into the hair through its
+pale strands. `--floor-shadow` additionally removes a soft ground shadow: it is a neutral, smooth
+gradient (often dithered), so it is keyed by connectivity and texture rather than by whiteness,
+including the part cropped by the bottom edge. Green-screen renders use the green dominance over
+the other channels, which naturally keys enclosed pockets between limbs. Edge pixels are unblended
+from the measured background colour before the final alpha is applied, which removes the fringe an
+ordinary chroma key leaves behind. A render that already carries transparency is used as-is
+(`--bg alpha`), with no unblending.
 
 usage: key_art.py SRC FULL_OUT [--head HEAD_OUT] [--green GREEN_OUT] [--max-w 800] [--max-h 1200]
-                         [--bg white|green|alpha]
+                         [--bg white|green|alpha] [--floor-shadow]
 """
 import argparse
 
@@ -18,8 +23,15 @@ from PIL import Image, ImageDraw, ImageFilter
 from scipy import ndimage
 
 
-def background_mask(rgb: np.ndarray) -> np.ndarray:
-    whiteish = (rgb.min(axis=2) >= 242) & ((rgb.max(axis=2) - rgb.min(axis=2)) <= 10)
+def background_mask(rgb: np.ndarray, floor_shadow: bool = False) -> np.ndarray:
+    border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]]).astype(np.float32)
+    page_lum = float(np.median(border.mean(axis=1)))
+    page_chroma = float(np.median(border.max(axis=1) - border.min(axis=1)))
+    white_floor = max(238.0, page_lum - 4.0)
+    white_ceiling = max(6.0, page_chroma + 2.0)
+    whiteish = (rgb.min(axis=2) >= white_floor) & (
+        (rgb.max(axis=2) - rgb.min(axis=2)) <= white_ceiling
+    )
     # White visible through closed hair loops never reaches the border, so it has to be keyed by
     # region. Every such pocket is small; a larger enclosed white is clothing and must stay.
     labels, count = ndimage.label(whiteish)
@@ -62,7 +74,64 @@ def background_mask(rgb: np.ndarray) -> np.ndarray:
     for seed in seeds:
         if pixels[seed] == 255:
             ImageDraw.floodfill(mask, seed, 128, thresh=0)
-    return (np.asarray(mask) == 128) | pockets
+    background = (np.asarray(mask) == 128) | pockets
+    if floor_shadow:
+        background = remove_floor_shadow(rgb, background)
+    return background
+
+
+def remove_floor_shadow(rgb: np.ndarray, background: np.ndarray) -> np.ndarray:
+    """Erase a soft neutral ground shadow without touching the figure standing in it."""
+    rgb_f = rgb.astype(np.float32)
+    lum = rgb_f.mean(axis=2)
+    chroma = rgb_f.max(axis=2) - rgb_f.min(axis=2)
+    # The shadow is a dithered gradient; judge smoothness on a despeckled copy so the dither does
+    # not read as texture and fence the shadow out. Fabric keeps real folds and line art, so the
+    # smooth-neutral region stays disconnected from the pale clothing that touches the page.
+    smooth_lum = ndimage.median_filter(lum, 3)
+    mean = ndimage.uniform_filter(smooth_lum, 5, mode="nearest")
+    std = np.sqrt(
+        np.maximum(ndimage.uniform_filter(smooth_lum * smooth_lum, 5, mode="nearest") - mean * mean, 0)
+    )
+    soft = (chroma <= 18) & (lum >= 193) & (std <= 2.5)
+    radius = 2
+    yy, xx = np.mgrid[-radius : radius + 1, -radius : radius + 1]
+    soft = ndimage.binary_closing(soft, structure=(xx * xx + yy * yy) <= radius * radius)
+
+    labels, _ = ndimage.label(background | soft)
+    background_ids = set(np.unique(labels[background])) - {0}
+    result = np.isin(labels, list(background_ids))
+
+    # The shadow is cropped by the bottom edge, so its ridges can fence it off from the page.
+    # Flood the bottom band over neutral, non-dark pixels: the navy boots stop the flood, while
+    # the shadow and its ripples go. The band excludes the skirt hem and every pale garment.
+    height = lum.shape[0]
+    band = np.zeros(lum.shape, bool)
+    band[-round(height * 0.05) :, :] = True
+    neutral = (chroma <= 24) & (lum >= 140) & band
+    seeds = np.zeros_like(neutral)
+    seeds[-1, :] = neutral[-1, :]
+    floor_labels, _ = ndimage.label(neutral)
+    floor_ids = set(np.unique(floor_labels[seeds])) - {0}
+    result |= np.isin(floor_labels, list(floor_ids))
+
+    # Stray bright flecks of the shadow just above the band: drop isolated small islands without
+    # touching the outfit's glitter, which sits higher up the figure.
+    low = np.zeros(lum.shape, bool)
+    low[-round(height * 0.12) :, :] = True
+    fleck_labels, fleck_count = ndimage.label(~result)
+    fleck_sizes = ndimage.sum(~result, fleck_labels, range(1, fleck_count + 1))
+    fleck_boxes = ndimage.find_objects(fleck_labels)
+    for index in range(1, fleck_count + 1):
+        if fleck_sizes[index - 1] > 220:
+            continue
+        row, column = fleck_boxes[index - 1]
+        region = fleck_labels[row, column] == index
+        if not (low[row, column] & region).any():
+            continue
+        if lum[row, column][region].mean() >= 205 and chroma[row, column][region].mean() <= 20:
+            result[row, column] |= region
+    return result
 
 
 def green_matte(rgb: np.ndarray):
@@ -90,6 +159,7 @@ def export(
     max_h: int,
     bg: str = "white",
     fit_h: int | None = None,
+    floor_shadow: bool = False,
 ):
     if bg == "alpha":
         rgba = Image.open(src).convert("RGBA")
@@ -152,7 +222,7 @@ def export(
         if bg == "green":
             coverage, bg_color = green_matte(rgb)
         else:
-            background = background_mask(rgb)
+            background = background_mask(rgb, floor_shadow)
             coverage = (~background).astype(np.float32)
             # A supplied page is not always #ffffff (this one sits at 246,244,245). Measure it so
             # the edge unblend does not subtract ten levels too much and leave a dark rim.
@@ -246,8 +316,23 @@ def main():
     parser.add_argument("--max-h", type=int, default=1200)
     parser.add_argument("--bg", choices=("white", "green", "alpha"), default="white")
     parser.add_argument("--fit-h", type=int, default=0, help="scale the figure to this height in pixels")
+    parser.add_argument(
+        "--floor-shadow",
+        action="store_true",
+        help="remove a soft ground shadow from a white-page render",
+    )
     args = parser.parse_args()
-    export(args.src, args.full_out, args.head, args.green, args.max_w, args.max_h, args.bg, args.fit_h or None)
+    export(
+        args.src,
+        args.full_out,
+        args.head,
+        args.green,
+        args.max_w,
+        args.max_h,
+        args.bg,
+        args.fit_h or None,
+        args.floor_shadow,
+    )
 
 
 if __name__ == "__main__":

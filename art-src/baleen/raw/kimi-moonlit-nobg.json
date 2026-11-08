@@ -1,0 +1,9 @@
+{
+  "model": "remove-bg",
+  "id": "1f1db058-27e7-6100-827a-05fd4519cc58",
+  "source": "art-src/baleen/raw/kimi-moonlit-master.png",
+  "imageId": "378fd3d2-8ae1-45f4-b30d-6b1e66af1841",
+  "cost": "0.1047",
+  "unit": "DOLLARS",
+  "output": "art-src/baleen/raw/kimi-moonlit-nobg.png"
+}

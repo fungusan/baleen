@@ -1,4 +1,4 @@
-import type { CharacterId, DeepSeekModel } from './types';
+import type { CharacterId, Model } from './types';
 
 export interface Character {
   id: CharacterId;
@@ -8,40 +8,48 @@ export interface Character {
   accent: string;
   /** Width / height of the trimmed full-body art, so the overlay box hugs the figure. */
   aspect: number;
-  /** How far the drawn head sits from the canvas top and right edges, as canvas fractions. */
-  inset: { top: number; right: number };
-  /** Pixels to raise the fixed-size emote bubble above hair that reaches the canvas top. */
-  lift: number;
 }
-// She has two drawings, and the chat model chooses which one is on the page: the maid for V4 Pro
-// and the notebook version for Flash. There is no outfit picker; the art follows the model.
+// The chat model chooses which drawing is on the page: the maid for V4 Pro, the notebook for Flash,
+// the pumpkin cat for Kimi K3.1 Pro and the moonlit flute dress for Kimi K3. There is no outfit picker.
 export const CHARACTERS: readonly Character[] = [
   {
     id: 'baleen',
     name: 'Baleen',
     accent: '#2f4a8a',
     aspect: 0.553,
-    inset: { top: 0, right: 0.094 },
-    lift: 0,
   },
   {
     id: 'baleen-flash',
     name: 'Baleen',
     accent: '#2f4a8a',
     aspect: 0.522,
-    inset: { top: 0, right: 0.206 },
-    lift: 0,
+  },
+  {
+    id: 'baleen-kimi',
+    name: 'Baleen',
+    accent: '#3b3f7a',
+    aspect: 0.5346,
+  },
+  {
+    id: 'baleen-kimi-halloween',
+    name: 'Baleen',
+    accent: '#b8601f',
+    aspect: 0.5375,
   },
 ];
-export const characterForModel = (model: DeepSeekModel): CharacterId =>
-  model === 'deepseek-v4-pro' ? 'baleen' : 'baleen-flash';
+export const characterForModel = (model: Model): CharacterId => {
+  if (model === 'deepseek-v4-pro') return 'baleen';
+  if (model === 'kimi-k3.1-pro') return 'baleen-kimi-halloween';
+  if (model === 'kimi-k3') return 'baleen-kimi';
+  return 'baleen-flash';
+};
 export const characterById = (id: CharacterId): Character =>
   CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
 /**
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '32';
+const ART_REVISION = '35';
 const assetVersion = () => {
   try {
     const version =

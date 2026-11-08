@@ -26,6 +26,32 @@
   user-select: none;
   pointer-events: none;
 }
+/* One status mark only: the heart she holds for a moment after a good exchange. It floats in the
+   empty top corner of the trimmed art, clear of her head and of the reply bubble above. */
+.fg-emote {
+  position: absolute;
+  top: 6px;
+  right: 2px;
+  min-width: 26px;
+  padding: 4px 9px;
+  text-align: center;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--fg-glass, #fffffff2);
+  color: var(--fg-ink, var(--accent, #2f4a8a));
+  box-shadow: 0 2px 8px #0002;
+  font: 700 16px/1.2 system-ui, sans-serif;
+  pointer-events: none;
+  animation: fg-emote-in 0.45s cubic-bezier(0.22, 1.4, 0.4, 1);
+}
+.fg-emote:empty {
+  display: none;
+}
+@keyframes fg-emote-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
 .fg-character[data-pose='listen'] .fg-body {
   animation: fg-listen 2.6s ease-in-out infinite;
 }
@@ -46,28 +72,6 @@
 }
 .fg-character[data-pose='rest'] .fg-body {
   animation: fg-rest 10s ease-in-out infinite;
-}
-/* Anchored to the drawn figure, not the canvas: her hair and tail reach wider than her head, so
-   the bubble follows the head silhouette rather than the box edge. The lift is a fixed pixel
-   amount because the bubble itself never scales. */
-.fg-emote {
-  position: absolute;
-  top: calc(var(--art-top, 0) * 100% - 6px - var(--art-lift, 0px));
-  right: calc(var(--art-right, 0) * 100% - 2px);
-  min-width: 26px;
-  padding: 4px 9px;
-  text-align: center;
-  background: #fffffff2;
-  color: var(--accent, #2f4a8a);
-  border-radius: 14px 14px 14px 4px;
-  box-shadow: 0 2px 8px #0002;
-  font:
-    700 16px/1.2 system-ui,
-    sans-serif;
-  pointer-events: none;
-}
-.fg-emote:empty {
-  display: none;
 }
 /* The popup's Animate switch can stop the decorative motion; she then holds the pose still. */
 .fg-character[data-animated='false'] .fg-body {
