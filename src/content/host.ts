@@ -5,12 +5,21 @@ import { findPassages } from './retrieve';
 import { asksToRemember, notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
 import { asksAboutBaleen } from '../shared/help';
 import { characterById, characterForModel } from '../shared/characters';
-import { DEEPSEEK_MODELS, DEEPSEEK_MODEL_LABELS } from '../shared/types';
+import {
+  MODELS,
+  MODEL_LABELS,
+  MODEL_META,
+  MODEL_SHORT,
+  PROVIDER_LABELS,
+  providerForModel,
+} from '../shared/types';
+import { modelIcon } from '../shared/modelIcon';
 import type {
   ChatTurn,
-  DeepSeekModel,
   Look,
+  Model,
   Position,
+  Provider,
   Settings,
   Theme,
 } from '../shared/types';
@@ -95,6 +104,8 @@ const CHAT_CSS = `
     --body:light-dark(#404040,#d4d4d4); --muted:light-dark(#737373,#a3a3a3); --faint:light-dark(#a3a3a3,#737373);
     --line:light-dark(#e5e5e5,#262626); --stone:light-dark(#d4d4d4,#404040);
     --accent:light-dark(#849f5d,#9ab86e); --accent-hover:light-dark(#728b4f,#adcb80);
+    --accent-strong:light-dark(#617a3e,#9ab86e); --accent-text:light-dark(#5c7539,#a9c77e);
+    --cream:#f5f2ec; --navy:#0e2a55;
     --accent-soft:light-dark(rgba(132,159,93,.08),rgba(154,184,110,.14));
     --accent-line:light-dark(rgba(132,159,93,.45),rgba(154,184,110,.5));
     --danger:light-dark(#b91c1c,#f87171); --on-accent:light-dark(#ffffff,#000000);
@@ -145,6 +156,27 @@ const CHAT_CSS = `
   }
   .wrap.collapsed .collapse:hover { filter:brightness(1.1); }
   .wrap.collapsed .collapse:focus-visible { outline:2px solid var(--section, var(--accent)); outline-offset:2px; }
+  /* A page study is not a section ribbon: it is the brand book tile from the extension menu,
+     cream with a navy glyph, in both schemes. */
+  .wrap.collapsed.study .collapse {
+    display:flex; align-items:center; justify-content:center;
+    width:100%; height:40px; margin:0; padding:0;
+    border:1px solid light-dark(rgba(14,42,85,.14),rgba(0,0,0,.4)); border-radius:10px;
+    background:var(--cream); color:var(--navy); clip-path:none;
+    box-shadow:0 1px 2px light-dark(rgba(17,24,39,.06),rgba(0,0,0,.38)),0 4px 14px light-dark(rgba(17,24,39,.1),rgba(0,0,0,.42));
+    font-size:0; line-height:0; cursor:grab;
+    transition:background .15s,border-color .15s,box-shadow .15s;
+  }
+  .wrap.collapsed.study .collapse::before {
+    content:""; flex:none; width:20px; height:20px; background:currentColor;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10 5 7.2 4.5 4.5 5.3v12.4c2.7-.8 5.5-.3 7.5 1.2 2-1.5 4.8-2 7.5-1.2V5.3C16.8 4.5 14 5 12 6.5Z'/%3E%3Cpath d='M12 6.5V19'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10 5 7.2 4.5 4.5 5.3v12.4c2.7-.8 5.5-.3 7.5 1.2 2-1.5 4.8-2 7.5-1.2V5.3C16.8 4.5 14 5 12 6.5Z'/%3E%3Cpath d='M12 6.5V19'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+  .wrap.collapsed.study .collapse:hover {
+    filter:none; background:light-dark(#efeade,#f7f4ee); border-color:light-dark(rgba(14,42,85,.24),rgba(0,0,0,.55));
+    box-shadow:0 2px 4px light-dark(rgba(17,24,39,.08),rgba(0,0,0,.42)),0 8px 22px light-dark(rgba(17,24,39,.14),rgba(0,0,0,.5));
+  }
+  .wrap.collapsed.study .collapse:focus-visible { outline-color:var(--accent); }
   .thread { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; margin-right:14px; padding:9px 0 8px 12px; overflow:auto; scrollbar-width:thin; }
   .thread[hidden],.note[hidden],.copy[hidden] { display:none!important; }
   .msg-user { align-self:flex-end; max-width:86%; padding:6px 10px; border-radius:10px; background:color-mix(in srgb, var(--section, var(--accent)) 12%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--section, var(--accent)) 28%, transparent); color:var(--ink); font:12px/1.55 var(--sans); white-space:pre-wrap; overflow-wrap:anywhere; }
@@ -186,40 +218,48 @@ const CHAT_CSS = `
   .thought[open] summary::before { transform:rotate(90deg); }
   .thought-body { margin:3px 0 2px; padding-left:10px; border-left:2px solid var(--line); max-height:170px; overflow:auto; color:var(--muted); font:11.5px/1.65 var(--sans); overflow-wrap:anywhere; scrollbar-width:thin; }
   .thought-body.markdown p,.thought-body.markdown li { font:inherit; }
-  /* Three grips mark how the window scales: the right edge stretches width, the bottom edge height,
-     and the corner both at once. Arrows say which way each grip moves, so the edge grips do not read
-     as scrollbars. The thread keeps a gutter on its right so the width grip clears its scrollbar. */
-  .grip { position:absolute; z-index:2; padding:0; border:0; background:transparent; touch-action:none; opacity:.8; transition:opacity .15s,background .15s; }
-  .grip::before { content:""; position:absolute; border-radius:2px; background:var(--muted); transition:background .15s,color .15s; }
+  /* Three grips mark how the window scales: the whole right edge stretches width, the whole bottom
+     edge height, and the corner both at once. Hover draws an accent line along the edge so the full
+     length reads as draggable. The thread keeps a gutter on its right so the width grip clears its
+     scrollbar. */
+  .grip { position:absolute; z-index:2; padding:0; border:0; background:transparent; touch-action:none; opacity:.8; transition:opacity .15s; }
   .grip:hover,.grip:focus-visible,.wrap:hover .grip { opacity:1; }
-  .grip:hover::before,.grip:focus-visible::before { background:var(--accent); }
-  .grip-x,.grip-y { display:flex; align-items:center; justify-content:center; border-radius:6px; color:var(--muted); }
-  .grip-x:hover,.grip-y:hover,.grip-x:focus-visible,.grip-y:focus-visible { background:var(--sunken); }
-  .grip-x::before,.grip-y::before { position:static; padding:2px 3px; border-radius:5px; background:var(--sunken); box-shadow:inset 0 0 0 1px var(--line); color:inherit; font:11px/1 var(--mono); }
-  .grip-x::before { content:"\\2194"; padding:2px 3px; }
-  .grip-y::before { content:"\\2195"; font-size:10px; padding:1px 3px; }
-  .grip-x:hover::before,.grip-y:hover::before,.grip-x:focus-visible::before,.grip-y:focus-visible::before { background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line); color:var(--accent); }
-  .grip-x { top:50%; right:1px; width:14px; height:40px; transform:translateY(-50%); cursor:ew-resize; }
-  .grip-y { left:18px; right:28px; bottom:0; height:14px; cursor:ns-resize; }
-  .grip-corner { right:1px; bottom:1px; width:24px; height:24px; cursor:nwse-resize; }
-  .grip-corner::before { right:4px; bottom:4px; width:13px; height:13px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); border-radius:0; background:none; }
+  .grip-x::after,.grip-y::after { content:""; position:absolute; border-radius:2px; background:var(--accent); opacity:0; transition:opacity .15s; }
+  .grip-x::after { top:0; bottom:0; right:2px; width:2px; }
+  .grip-y::after { left:0; right:0; bottom:2px; height:2px; }
+  .grip-x:hover::after,.grip-x:focus-visible::after,.grip-y:hover::after,.grip-y:focus-visible::after { opacity:.55; }
+  .grip-x { top:36px; bottom:26px; right:0; width:10px; cursor:ew-resize; }
+  .grip-y { left:0; right:26px; bottom:0; height:10px; cursor:ns-resize; }
+  .grip-corner { z-index:3; right:0; bottom:0; width:26px; height:26px; cursor:nwse-resize; }
+  .grip-corner::before { content:""; position:absolute; right:5px; bottom:5px; width:13px; height:13px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); border-radius:0; background:none; }
   .grip-corner:hover::before,.grip-corner:focus-visible::before { border-color:var(--accent); background:none; }
   .wrap.collapsed .grip { display:none; }
   .note { margin:0; padding:0 12px 6px; color:var(--faint); font:9.5px/1.5 var(--sans); }
-  .form { display:flex; align-items:flex-end; gap:6px; margin:0 10px; padding:5px 5px 5px 9px; border:1px solid var(--line); border-radius:10px; background:var(--sunken); transition:border-color .15s,box-shadow .15s; }
+  .form { display:flex; align-items:center; gap:6px; margin:0 10px; padding:5px 5px 5px 9px; border:1px solid var(--line); border-radius:10px; background:var(--sunken); transition:border-color .15s,box-shadow .15s; }
   .form:focus-within { border-color:color-mix(in srgb, var(--section, var(--accent)) 55%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--section, var(--accent)) 14%, transparent); }
-  .input { flex:1; min-width:0; min-height:28px; max-height:110px; padding:3px 0; border:0; background:transparent; color:var(--ink); font:12px/1.5 var(--sans); resize:none; overflow-y:auto; scrollbar-width:thin; }
+  .input { flex:1; min-width:0; min-height:32px; max-height:110px; padding:7px 0; border:0; background:transparent; color:var(--ink); font:12px/1.5 var(--sans); resize:none; overflow-y:auto; scrollbar-width:thin; }
   .input::placeholder { color:var(--faint); }
   .input:focus-visible { outline:none; }
-  .send { flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:var(--section, var(--accent)); color:var(--on-accent); font:13px/1 var(--mono); transition:background .15s,color .15s; }
+  .send { flex:none; display:flex; align-items:center; justify-content:center; width:30px; height:30px; padding:0; border:0; border-radius:50%; background:var(--section, var(--accent)); color:var(--on-accent); font:20px/1 var(--mono); transition:background .15s,color .15s; }
   .send:hover:not(:disabled) { filter:brightness(1.1); }
   .send:disabled { background:var(--sunken); color:var(--faint); cursor:default; }
   .foot { display:flex; align-items:center; gap:4px; padding:5px 28px 9px 10px; }
-  .seg { display:inline-flex; gap:0; }
-  .seg button { padding:2px 6px; border-radius:5px; color:var(--faint); font:9.5px/1.5 var(--sans); white-space:nowrap; transition:background .15s,color .15s; }
-  .seg button:hover:not(:disabled) { color:var(--ink); }
-  .seg button[aria-pressed="true"] { background:var(--sunken); color:var(--ink); }
-  .seg button:disabled { opacity:.5; cursor:default; }
+  .model-pick { position:relative; flex:none; }
+  .model-trigger { display:flex; align-items:center; gap:6px; padding:3px 8px 3px 7px; border-radius:6px; color:var(--muted); font:11px/1.5 var(--sans); white-space:nowrap; transition:background .15s,color .15s; }
+  .model-trigger::after { content:""; width:4px; height:4px; margin:-2px 1px 0 0; border-right:1px solid currentColor; border-bottom:1px solid currentColor; transform:rotate(45deg); }
+  .model-trigger:hover:not(:disabled),.model-trigger[aria-expanded="true"] { background:var(--sunken); color:var(--ink); }
+  .model-trigger:disabled { opacity:.5; cursor:default; }
+  .model-trigger .model-glyph { width:13px; height:13px; }
+  .model-glyph { display:block; flex:none; width:11px; height:11px; fill:currentColor; }
+  .model-menu { position:fixed; z-index:9; min-width:184px; padding:3px; border:1px solid var(--line); border-radius:8px; background:var(--bg); box-shadow:var(--shadow); }
+  .model-menu[hidden] { display:none!important; }
+  .model-option { display:flex; align-items:center; gap:6px; width:100%; padding:4px 7px; border-radius:5px; color:var(--body); font:10.5px/1.5 var(--sans); text-align:left; }
+  .model-option .model-glyph { width:12px; height:12px; color:var(--faint); }
+  .model-option:hover,.model-option:focus-visible { background:var(--sunken); color:var(--ink); outline:none; }
+  .model-option[aria-selected="true"] { background:var(--accent-soft); color:var(--ink); }
+  .model-option[aria-selected="true"] .model-glyph { color:var(--accent); }
+  .model-opt-name { flex:1; min-width:0; }
+  .model-opt-meta { font-size:9px; letter-spacing:.04em; color:var(--faint); }
   .usage { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--faint); font:9px/1.5 var(--mono); text-align:right; }
   .copy { flex:none; padding:2px 5px; border-radius:5px; color:var(--muted); font:9.5px/1.5 var(--sans); transition:background .15s,color .15s; }
   .copy:hover { background:var(--sunken); color:var(--ink); }
@@ -227,30 +267,49 @@ const CHAT_CSS = `
   ${MARKDOWN_CSS}
 `;
 
-/** The pill that offers a conversation after a selection settles; it never mutates the page. */
+/** The chip that offers a conversation after a selection settles; it never mutates the page. */
 const ASK_CSS = `
   :host { all:initial; }
   * { box-sizing:border-box; }
   button {
-    display:flex; align-items:center; gap:6px; padding:5px 10px 5px 8px;
-    border:1px solid light-dark(rgba(17,24,39,.1),rgba(255,255,255,.14)); border-radius:8px;
-    background:light-dark(#ffffff,#1b1b1b); color:light-dark(#0a0a0a,#f5f5f5);
-    box-shadow:0 1px 2px light-dark(rgba(17,24,39,.07),rgba(0,0,0,.45)),0 6px 20px light-dark(rgba(17,24,39,.1),rgba(0,0,0,.5));
-    cursor:pointer; color-scheme:light dark;
-    font:500 12px/1.4 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
-    letter-spacing:.005em; white-space:nowrap;
-    transition:background .12s,border-color .12s,box-shadow .12s;
+    --ask-cream:#f5f2ec; --ask-navy:#0e2a55; --ask-accent:light-dark(#849f5d,#9ab86e);
+    position:relative; display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; padding:0;
+    border:1px solid light-dark(rgba(132,159,93,.45),rgba(154,184,110,.5)); border-radius:999px;
+    background:var(--ask-cream); color:var(--ask-navy); cursor:pointer; color-scheme:light dark;
+    box-shadow:0 1px 2px light-dark(rgba(17,24,39,.08),rgba(0,0,0,.45)),0 6px 20px light-dark(rgba(17,24,39,.12),rgba(0,0,0,.5));
+    transition:border-color .12s,box-shadow .12s,transform .12s;
     animation:fg-ask-in .13s ease-out;
   }
-  svg { flex:none; width:14px; height:14px; color:light-dark(#849f5d,#9ab86e); }
-  button:hover {
-    background:light-dark(#fbfcf8,#22261c); border-color:light-dark(rgba(132,159,93,.5),rgba(154,184,110,.55));
-    box-shadow:0 1px 2px light-dark(rgba(17,24,39,.08),rgba(0,0,0,.5)),0 8px 24px light-dark(rgba(17,24,39,.13),rgba(0,0,0,.55));
+  .ask-mark { flex:none; display:block; width:19px; height:19px; }
+  /* The word waits beside the circle so the resting chip stays one small mark. */
+  .ask-label {
+    position:absolute; left:calc(100% + 6px); top:4px; height:26px;
+    display:flex; align-items:center; padding:0 11px 0 10px;
+    border:1px solid light-dark(rgba(132,159,93,.45),rgba(154,184,110,.5)); border-radius:999px;
+    background:var(--ask-cream); color:var(--ask-navy);
+    box-shadow:0 4px 14px light-dark(rgba(17,24,39,.1),rgba(0,0,0,.45));
+    font:500 12px/1 ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif; white-space:nowrap;
+    opacity:0; visibility:hidden; transform:translateX(-4px); pointer-events:none;
+    transition:opacity .14s ease,transform .14s ease,visibility .14s,border-color .12s;
   }
+  button:hover { border-color:var(--ask-accent); box-shadow:0 2px 4px light-dark(rgba(17,24,39,.1),rgba(0,0,0,.5)),0 9px 26px light-dark(rgba(17,24,39,.16),rgba(0,0,0,.55)); }
+  button:hover .ask-label, button:focus-visible .ask-label {
+    opacity:1; visibility:visible; transform:none; border-color:var(--ask-accent);
+  }
+  /* Near the right edge the word opens to the left instead of leaving the viewport. */
+  button[data-side="left"] .ask-label {
+    left:auto; right:calc(100% + 6px); padding:0 10px 0 11px;
+    transform:translateX(4px);
+  }
+  button[data-side="left"]:hover .ask-label, button[data-side="left"]:focus-visible .ask-label { transform:none; }
   button:active { transform:translateY(.5px); }
-  button:focus-visible { outline:2px solid light-dark(#849f5d,#9ab86e); outline-offset:2px; }
+  button:focus-visible { outline:2px solid var(--ask-accent); outline-offset:2px; }
   @keyframes fg-ask-in { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:none; } }
-  @media (prefers-reduced-motion: reduce) { button { animation:none; } }
+  @media (prefers-reduced-motion: reduce) {
+    button { animation:none; }
+    .ask-label { transition:none; }
+  }
   :host([data-theme="light"]) button { color-scheme:light; }
   :host([data-theme="dark"]) button { color-scheme:dark; }
 `;
@@ -285,6 +344,7 @@ const CHAT_MIN_HEIGHT = 200;
 const CHAT_MAX_WIDTH = 760;
 const CHAT_MAX_HEIGHT = 900;
 const COLLAPSED_WIDTH = 20;
+const STUDY_CHIP_WIDTH = 40;
 const CHAT_SIZE_KEY = 'fg:chatSize:v1';
 
 function highlightColor(value: unknown): HighlightColor | null {
@@ -297,7 +357,9 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   kind?: 'error';
-  /** DeepSeek's chain of thought, only for answers asked with thinking enabled. */
+  /** The model that wrote this reply; missing on messages saved before it was recorded. */
+  model?: Model;
+  /** The model's chain of thought, only for answers asked with thinking enabled. */
   reasoning?: string;
   /** Milliseconds spent waiting on an answer that came with reasoning. */
   thoughtFor?: number;
@@ -314,6 +376,8 @@ interface ChatAnchor {
   element: Element | null;
   /** PDF page number, so the block can be reattached after the reader rebuilds its pages. */
   page: number | null;
+  /** A page-wide Study chat: no quote and no highlight, just a bookmark beside the text. */
+  study?: boolean;
 }
 
 interface StoredChat {
@@ -323,6 +387,7 @@ interface StoredChat {
   text?: unknown;
   images?: unknown;
   page?: unknown;
+  study?: unknown;
   path?: unknown;
   messages?: unknown;
   collapsed?: unknown;
@@ -529,7 +594,7 @@ function shortenName(value: string, max = 48): string {
   return `${(space > max * 0.5 ? cut.slice(0, space) : cut).trimEnd()}\u2026`;
 }
 
-/** The last heading before the section, like the title DeepSeek gives a new conversation. */
+/** The last heading before the section, like the title the model gives a new conversation. */
 function nearestHeading(anchor: ChatAnchor): string {
   const start = anchor.range?.startContainer ?? anchor.element;
   if (!start?.isConnected) return '';
@@ -578,7 +643,7 @@ export function createHost(
   actions: {
     hide(): void;
     position(value: Position): void;
-    model(value: DeepSeekModel): void;
+    model(value: Model): void;
   },
 ) {
   const element = document.createElement('div');
@@ -619,7 +684,6 @@ export function createHost(
     button:focus-visible { outline:2px solid var(--fg-accent); outline-offset:2px; }
     .grip { position:absolute; inset:0; width:100%; height:100%; background:transparent; pointer-events:auto; cursor:grab; touch-action:none; border-radius:12px; }
     .grip:active { cursor:grabbing; } .grip:focus-visible { outline:2px solid var(--fg-accent); outline-offset:3px; }
-    .fg-emote { background:var(--fg-glass); color:var(--fg-ink); box-shadow:0 2px 8px rgba(0,0,0,.13); }
     .ask-highlight span[hidden] { display:none!important; }
     /* Her reading chat is one speech bubble over her head, never a chat window. Clicking her opens
        an obvious little field; once she answers, the field gives way to her sentence for a few
@@ -634,19 +698,27 @@ export function createHost(
     .say[data-leaving="true"] { opacity:0; pointer-events:none; }
     /* During a turn the bubble is only an anchor; the process bubble beside it carries the words. */
     .say[data-mode="process"] { visibility:hidden; }
-    .say[data-mode="reply"] {
+    /* The ask field and her sentence are one bubble: same fill, hairline, radius and tail. */
+    .say[data-mode="reply"],
+    .say[data-mode="ask"] {
       display:flex; align-items:center; padding:6px 10px;
       border:1px solid var(--fg-accent-line); border-radius:14px;
       background:var(--fg-bg); box-shadow:var(--fg-soft-shadow);
     }
-    .say[data-mode="reply"]::after {
+    .say[data-mode="ask"]:focus-within {
+      border-color:var(--fg-accent);
+      box-shadow:var(--fg-soft-shadow), 0 0 0 2px var(--fg-accent-soft);
+    }
+    .say[data-mode="reply"]::after,
+    .say[data-mode="ask"]::after {
       content:""; position:absolute; bottom:-5px; left:calc(50% - var(--say-shift, 0px));
       width:9px; height:9px; border-right:1px solid var(--fg-accent-line);
       border-bottom:1px solid var(--fg-accent-line); border-bottom-right-radius:2px;
       background:var(--fg-bg); transform:translateX(-50%) rotate(45deg);
     }
     .companion.below .say { top:calc(100% + 10px); bottom:auto; }
-    .companion.below .say[data-mode="reply"]::after {
+    .companion.below .say[data-mode="reply"]::after,
+    .companion.below .say[data-mode="ask"]::after {
       top:-5px; bottom:auto; border:0; border-top:1px solid var(--fg-accent-line);
       border-left:1px solid var(--fg-accent-line); border-radius:0; border-top-left-radius:2px;
     }
@@ -658,50 +730,69 @@ export function createHost(
     }
     .say-reply[hidden],.say-form[hidden] { display:none!important; }
     .say-reply[data-kind="error"] { color:var(--fg-danger); }
-    /* While she works, this bubble sits where her sentence will appear; her own bubble stays an
-       empty, invisible anchor so opening and closing it keeps working. */
+    /* While she works, a thought bubble floats over her head: three drifting dots with a short
+       trail toward her, no words. Her own bubble stays an empty, invisible anchor so opening and
+       closing it keeps working. */
     .process {
-      position:absolute; bottom:calc(100% + 10px); left:50%;
+      position:absolute; bottom:calc(100% + 14px); left:50%;
       transform:translateX(calc(-50% + var(--say-shift, 0px)));
-      display:flex; align-items:center; gap:6px;
-      width:max-content; max-width:min(260px, calc(100vw - 20px));
-      padding:6px 10px; border:1px solid var(--fg-line); border-radius:14px;
+      display:flex; align-items:center; justify-content:center;
+      width:44px; height:24px;
+      border:1px solid var(--fg-accent-line); border-radius:999px;
       background:var(--fg-bg); box-shadow:var(--fg-soft-shadow);
-      color:var(--fg-muted); font:500 12.5px/1.5 var(--fg-cute);
-      pointer-events:none;
+      pointer-events:none; animation:fg-thought-in .18s ease-out;
     }
     .process[hidden] { display:none!important; }
-    .process::before {
-      content:""; flex:none; width:5px; height:5px; border-radius:50%;
-      background:var(--fg-accent); animation:fg-say-think 1.2s ease-in-out infinite;
+    .process::before,.process::after {
+      content:""; position:absolute; border-radius:50%;
+      background:var(--fg-bg); box-shadow:inset 0 0 0 1px var(--fg-accent-line);
     }
-    .process::after {
-      content:""; position:absolute; bottom:-5px; left:calc(50% - var(--say-shift, 0px));
-      width:9px; height:9px; border-right:1px solid var(--fg-line);
-      border-bottom:1px solid var(--fg-line); border-bottom-right-radius:2px;
-      background:var(--fg-bg); transform:translateX(-50%) rotate(45deg);
+    /* The trail stays on her head even when the bubble shifts to fit the viewport. */
+    .process::before { left:calc(50% - var(--say-shift, 0px)); bottom:-7px; width:6px; height:6px; margin-left:-13px; }
+    .process::after { left:calc(50% - var(--say-shift, 0px)); bottom:-14px; width:4px; height:4px; margin-left:-21px; }
+    .process-dots { display:flex; align-items:center; gap:4px; }
+    .process-dot {
+      width:5px; height:5px; border-radius:50%; background:var(--fg-accent);
+      animation:fg-thought-dot 1.15s ease-in-out infinite;
     }
-    .companion.below .process { top:calc(100% + 10px); bottom:auto; }
-    .companion.below .process::after {
-      top:-5px; bottom:auto; border:0; border-top:1px solid var(--fg-line);
-      border-left:1px solid var(--fg-line); border-radius:0; border-top-left-radius:2px;
+    .process-dot:nth-child(2) { animation-delay:.15s; }
+    .process-dot:nth-child(3) { animation-delay:.3s; }
+    /* The words are for assistive tech; sighted readers get the dots. */
+    .process-text {
+      position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+      overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
     }
-    @keyframes fg-say-think { 0%,100%{opacity:.35} 50%{opacity:1} }
+    .companion.below .process { top:calc(100% + 14px); bottom:auto; }
+    .companion.below .process::before { bottom:auto; top:-7px; }
+    .companion.below .process::after { bottom:auto; top:-14px; }
+    @keyframes fg-thought-in {
+      from {
+        opacity:0;
+        transform:translateX(calc(-50% + var(--say-shift, 0px))) translateY(3px) scale(.86);
+      }
+    }
+    @keyframes fg-thought-dot {
+      0%,100% { opacity:.35; transform:translateY(0); }
+      40% { opacity:1; transform:translateY(-2px); }
+    }
+    .companion[data-animated="false"] .process,
+    .companion[data-animated="false"] .process-dot { animation:none; }
+    .companion[data-animated="false"] .process-dot { opacity:1; }
     @media (prefers-reduced-motion:reduce) {
-      .process::before { animation:none; }
+      .process,.process-dot { animation:none; }
+      .process-dot { opacity:1; }
     }
-    /* The field matches the section chat's composer: a hairline box on a sunken fill, with no
-       decorative pen and no send button. Enter sends. */
-    .say-form {
-      display:flex; align-items:center; width:min(232px, calc(100vw - 20px));
-      padding:6px 9px; border:1px solid var(--fg-line); border-radius:10px;
-      background:var(--fg-sunken);
-      transition:border-color .15s, box-shadow .15s;
-    }
-    .say-form:focus-within { border-color:var(--fg-accent); box-shadow:0 0 0 2px var(--fg-accent-soft); }
+    /* The bubble is the field. A quiet return mark at its edge steps aside once the reader types;
+       Enter sends, as before. */
+    .say-form { display:flex; align-items:center; gap:6px; width:min(232px, calc(100vw - 42px)); }
     .say-input { flex:1 1 auto; width:0; min-width:0; height:22px; padding:0; border:0; background:transparent; color:var(--fg-ink); font:12px/1.4 var(--fg-sans); }
     .say-input::placeholder { color:var(--fg-faint); }
     .say-input:focus-visible { outline:none; }
+    .say-hint {
+      flex:none; color:var(--fg-faint); font:10px/1 var(--fg-mono);
+      opacity:0; pointer-events:none; transition:opacity .12s;
+    }
+    .say-form:has(.say-input:placeholder-shown) .say-hint { opacity:1; }
     /* Bands sit in document coordinates, so the page scrolls them natively with the text. Fixed
        positioning repainted on scroll trailed the compositor by a frame and read as drift. */
     .ask-highlight { position:absolute; top:0; left:0; pointer-events:none; }
@@ -733,6 +824,12 @@ export function createHost(
   processBubble.hidden = true;
   processBubble.setAttribute('role', 'status');
   processBubble.setAttribute('aria-live', 'polite');
+  const processDots = make('span', 'process-dots');
+  processDots.setAttribute('aria-hidden', 'true');
+  for (let index = 0; index < 3; index += 1) processDots.append(make('span', 'process-dot'));
+  // The dots carry the thought visually; the label stays for screen readers.
+  const processText = make('span', 'process-text');
+  processBubble.append(processDots, processText);
   const talkForm = document.createElement('form');
   talkForm.className = 'say-form';
   const talkInput = document.createElement('input');
@@ -741,7 +838,11 @@ export function createHost(
   talkInput.placeholder = 'Message Baleen\u2026';
   talkInput.setAttribute('aria-label', 'Message Baleen');
   talkInput.autocomplete = 'off';
-  talkForm.append(talkInput);
+  const talkHint = document.createElement('span');
+  talkHint.className = 'say-hint';
+  talkHint.textContent = '\u21B5';
+  talkHint.setAttribute('aria-hidden', 'true');
+  talkForm.append(talkInput, talkHint);
   say.append(sayReply, talkForm);
   const highlightLayer = document.createElement('div');
   highlightLayer.className = 'ask-highlight';
@@ -766,7 +867,7 @@ export function createHost(
     originY: number;
     moved: boolean;
   } | null = null;
-  let modelChoice: DeepSeekModel = initial.model;
+  let modelChoice: Model = initial.model;
   let blocks: ChatBlock[] = [];
   let talkMessages: ChatMessage[] = [];
   let talkBusy = false;
@@ -778,6 +879,8 @@ export function createHost(
   let lookTimer = 0;
   let restTimer = 0;
   let toneUntil = 0;
+  let hiddenSince = 0;
+  let nextGreetingAt = 0;
   let restored = false;
   let pageWatcher: MutationObserver | null = null;
   const placeKey = () => `${location.origin}${location.pathname}${location.search}`;
@@ -818,27 +921,111 @@ export function createHost(
     }, 0);
   }
   function modelSwitch() {
-    const group = document.createElement('div');
-    group.className = 'seg';
-    group.setAttribute('role', 'group');
-    group.setAttribute('aria-label', 'DeepSeek model');
-    const buttons = DEEPSEEK_MODELS.map((id) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.textContent = id === 'deepseek-flash' ? 'Flash' : 'V4 Pro';
-      button.title = DEEPSEEK_MODEL_LABELS[id];
-      button.dataset.model = id;
-      button.setAttribute('aria-pressed', 'false');
-      button.onclick = () => chooseModel(id);
-      group.append(button);
-      return button;
-    });
+    const picker = make('div', 'model-pick');
+    const trigger = make('button', 'model-trigger');
+    trigger.type = 'button';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', 'Chat model');
+    const triggerIcon = make('span', 'model-glyph');
+    const triggerName = make('span', 'model-name');
+    trigger.append(triggerIcon, triggerName);
+    const menu = make('div', 'model-menu');
+    menu.hidden = true;
+    menu.setAttribute('role', 'listbox');
+    menu.setAttribute('aria-label', 'Chat model');
+    const options: HTMLButtonElement[] = [];
+    for (const id of MODELS) {
+      const option = make('button', 'model-option');
+      option.type = 'button';
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', 'false');
+      option.dataset.model = id;
+      option.innerHTML = `${modelIcon(id)}<span class="model-opt-name">${MODEL_SHORT[id]}</span><span class="model-opt-meta">${MODEL_META[id]}</span>`;
+      option.onclick = () => {
+        closeMenu(true);
+        chooseModel(id);
+      };
+      menu.append(option);
+      options.push(option);
+    }
+    picker.append(trigger, menu);
+    /* The footer sits at the panel's bottom and the panel clips its content, so the list is a
+       fixed box placed by hand: above the trigger when it fits, below it otherwise. */
+    function placeMenu() {
+      const rect = trigger.getBoundingClientRect();
+      const height = menu.offsetHeight;
+      const left = Math.max(8, Math.min(rect.left, innerWidth - menu.offsetWidth - 8));
+      let top = rect.top - height - 4;
+      if (top < 8) top = rect.bottom + 4;
+      if (top + height > innerHeight - 8) top = Math.max(8, innerHeight - height - 8);
+      menu.style.left = `${Math.round(left)}px`;
+      menu.style.top = `${Math.round(top)}px`;
+    }
+    const closeOnOutside = (event: PointerEvent) => {
+      if (!event.composedPath().includes(picker)) closeMenu();
+    };
+    const closeOnViewport = () => closeMenu();
+    function openMenu(focusSelected = false) {
+      if (trigger.disabled || !menu.hidden) return;
+      menu.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      placeMenu();
+      addEventListener('pointerdown', closeOnOutside, true);
+      addEventListener('scroll', closeOnViewport, true);
+      addEventListener('resize', closeOnViewport);
+      if (focusSelected) {
+        const selected = options.find((option) => option.getAttribute('aria-selected') === 'true');
+        (selected ?? options[0])?.focus();
+      }
+    }
+    function closeMenu(refocus = false) {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      removeEventListener('pointerdown', closeOnOutside, true);
+      removeEventListener('scroll', closeOnViewport, true);
+      removeEventListener('resize', closeOnViewport);
+      if (refocus) trigger.focus();
+    }
+    trigger.onclick = () => (menu.hidden ? openMenu() : closeMenu(true));
+    trigger.onkeydown = (event) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        openMenu(true);
+      } else if (event.key === 'Escape') closeMenu();
+    };
+    const move = (step: number) => {
+      const index = options.indexOf(deepActiveElement() as HTMLButtonElement);
+      options[(index + step + options.length) % options.length].focus();
+    };
+    menu.onkeydown = (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        move(1);
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        move(-1);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        options[0].focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        options[options.length - 1].focus();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu(true);
+      } else if (event.key === 'Tab') closeMenu();
+    };
     return {
-      element: group,
-      buttons,
+      element: picker,
+      buttons: [trigger, ...options],
       sync() {
-        for (const button of buttons)
-          button.setAttribute('aria-pressed', String(button.dataset.model === modelChoice));
+        triggerName.textContent = MODEL_SHORT[modelChoice];
+        triggerIcon.innerHTML = modelIcon(modelChoice);
+        trigger.title = MODEL_LABELS[modelChoice];
+        for (const option of options)
+          option.setAttribute('aria-selected', String(option.dataset.model === modelChoice));
       },
     };
   }
@@ -854,7 +1041,7 @@ export function createHost(
     for (const block of blocks) if (block.root.contains(active) || block.host === active) return block;
     return null;
   }
-  function chooseModel(next: DeepSeekModel) {
+  function chooseModel(next: Model) {
     if (next === modelChoice) return;
     modelChoice = next;
     syncModels();
@@ -915,16 +1102,16 @@ export function createHost(
   /** The process bubble is its own speech bubble; it never doubles as a chat message. */
   function showProcess(label: string) {
     // Keep the label current even while the surface is closed, so reopening shows the latest step.
-    processBubble.textContent = label;
+    processText.textContent = label;
     if (say.hidden) return;
     processBubble.hidden = false;
     placeTalk();
   }
   function hideProcess() {
     processBubble.hidden = true;
-    processBubble.textContent = '';
+    processText.textContent = '';
   }
-  /** Her answer is spoken once: after a few seconds the bubble fades and leaves. */
+  /** Her answer is spoken once: it stays up for as long as it takes to read, then fades. */
   function stopSayHide() {
     window.clearTimeout(sayHideTimer);
     sayHideTimer = 0;
@@ -932,6 +1119,8 @@ export function createHost(
   }
   function hideSayAfterAnswer() {
     stopSayHide();
+    const characters = lastReply()?.text.length ?? 0;
+    const hold = Math.min(15_000, Math.max(2_500, 1_500 + characters * 45));
     sayHideTimer = window.setTimeout(() => {
       if (say.hidden || talkMode !== 'reply') return;
       say.dataset.leaving = 'true';
@@ -939,7 +1128,7 @@ export function createHost(
         sayHideTimer = 0;
         closeTalk();
       }, 220);
-    }, 6000);
+    }, hold);
   }
   function readTalk(): ChatMessage[] {
     try {
@@ -958,6 +1147,9 @@ export function createHost(
           role: item.role,
           text: text.slice(0, 8000),
           ...(item.kind === 'error' ? { kind: 'error' as const } : {}),
+          ...(typeof item.model === 'string' && (MODELS as readonly string[]).includes(item.model)
+            ? { model: item.model as Model }
+            : {}),
         });
       }
       return messages.slice(-24);
@@ -974,6 +1166,19 @@ export function createHost(
       /* Session storage can be unavailable or full; the chat still works in memory. */
     }
   }
+  /** Drop the reading-chat transcript and any reply still in flight. */
+  function clearTalk(): number {
+    const count = talkMessages.length;
+    talkToken += 1;
+    talkMessages = [];
+    talkBusy = false;
+    saveTalk();
+    hideProcess();
+    closeTalk();
+    renderTalk();
+    settleLook();
+    return count;
+  }
   function openTalk() {
     say.hidden = false;
     stopSayHide();
@@ -981,7 +1186,7 @@ export function createHost(
     talkMode = talkBusy ? 'reply' : 'ask';
     fitPanel();
     renderTalk();
-    if (talkBusy) showProcess(processBubble.textContent || 'Thinking\u2026');
+    if (talkBusy) showProcess(processText.textContent || 'Thinking\u2026');
     else {
       talkInput.focus({ preventScroll: true });
       look('listen');
@@ -1042,7 +1247,7 @@ export function createHost(
       });
       if (token !== talkToken) return;
       const reply = takeNote(answer.text);
-      talkMessages.push({ role: 'assistant', text: reply.text });
+      talkMessages.push({ role: 'assistant', text: reply.text, model: modelChoice });
       if (reply.note && asksToRemember(prompt))
         void saveNote(reply.note.key, reply.note.value);
       deliver('happy');
@@ -1080,6 +1285,11 @@ export function createHost(
     if (!talkBusy && Date.now() >= toneUntil) look('listen');
   });
   talkInput.addEventListener('blur', settleLook);
+  // Keying a message turns her attention on; it eases off a beat after the typing stops.
+  talkInput.addEventListener('input', () => {
+    if (talkBusy || Date.now() < toneUntil) return;
+    look('listen', 2200);
+  });
   say.addEventListener('keydown', (event) => event.stopPropagation());
   function sameBox(a: DOMRect, b: DOMRect) {
     return (
@@ -1212,6 +1422,8 @@ export function createHost(
     else paintHighlights();
   }
   function chatKey(anchor: ChatAnchor): string {
+    // A page has one Study chat; the toolbar tools reopen it instead of stacking new windows.
+    if (anchor.study) return `study|${anchor.page ?? ''}`;
     // One conversation per section: walking a few paragraphs on should not start another chat.
     return `${anchor.page ?? ''}|${anchor.text.replace(/\s+/g, ' ').trim().slice(0, 200)}|${anchor.images.join('|')}`;
   }
@@ -1237,11 +1449,54 @@ export function createHost(
       page: page ? Number(page.dataset.page) || null : null,
     };
   }
+  /** Where a page-wide Study chat sits: the first readable block the reader can see. */
+  function studyElement(): Element | null {
+    const pages = [...document.querySelectorAll<HTMLElement>('.page[data-page]')];
+    const scope =
+      pages.find((page) => {
+        const rect = page.getBoundingClientRect();
+        return rect.bottom > 0 && rect.top < innerHeight;
+      }) ??
+      pages[0] ??
+      document.querySelector<HTMLElement>('main, article, [role="main"]') ??
+      document.body;
+    if (!scope) return null;
+    // A PDF page is one tall container; its text lives in absolutely positioned line spans.
+    const pdf = scope.matches('.page[data-page]');
+    let first: Element | null = null;
+    for (const node of scope.querySelectorAll(
+      pdf ? '.textLayer span' : 'p, li, blockquote, figcaption, dd, td',
+    )) {
+      if (node.closest('[data-fg-chat], #fungusan-gal, #fungusan-ask')) continue;
+      if (!pdf && (node.textContent ?? '').replace(/\s+/g, ' ').trim().length < 20) continue;
+      const rect = node.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) continue;
+      first ??= node;
+      if (rect.bottom > 0 && rect.top < innerHeight) return node;
+    }
+    return first ?? (pdf ? scope.querySelector('.textLayer span') : null) ?? scope;
+  }
+  function studyAnchor(): ChatAnchor {
+    return {
+      range: null,
+      text: '',
+      images: [],
+      media: [],
+      words: 0,
+      element: studyElement(),
+      page: null,
+      study: true,
+    };
+  }
   /** The conversation floats over the page in document coordinates, so it scrolls with the section
    * instead of being inserted into the article's flow and stretching the layout. */
   function blockWidth(block: ChatBlock) {
     // A collapsed row is a chip: narrower and shorter than the open conversation.
-    const limit = block.collapsed ? COLLAPSED_WIDTH : block.width;
+    const limit = block.collapsed
+      ? block.anchor.study
+        ? STUDY_CHIP_WIDTH
+        : COLLAPSED_WIDTH
+      : block.width;
     return Math.min(limit, Math.max(140, innerWidth - 16));
   }
   function applyBlockWidth(block: ChatBlock) {
@@ -1252,25 +1507,34 @@ export function createHost(
   function sizeBlock(block: ChatBlock, left: number) {
     applyBlockWidth(block);
     applyBlockSize(block);
-    const maxLeft = scrollX + innerWidth - blockWidth(block) - 4;
-    const next = Math.max(scrollX + 4, Math.min(left, maxLeft));
+    const originX = block.anchor.study ? 0 : scrollX;
+    const maxLeft = originX + innerWidth - blockWidth(block) - 4;
+    const next = Math.max(originX + 4, Math.min(left, maxLeft));
     block.host.style.setProperty('left', `${Math.round(next)}px`, 'important');
   }
   /** Re-seating against the section can move the window when a new height changes which side of it
    * fits, so the spot just resized into is folded into the drag offset first. */
   function adoptPlacement(block: ChatBlock) {
+    const originX = block.anchor.study ? 0 : scrollX;
+    const originY = block.anchor.study ? 0 : scrollY;
     const box = block.host.getBoundingClientRect();
-    const left = box.left + scrollX;
-    const top = box.top + scrollY;
+    const left = box.left + originX;
+    const top = box.top + originY;
     placeBlock(block);
     const seated = block.host.getBoundingClientRect();
-    block.offsetX += left - (seated.left + scrollX);
-    block.offsetY += top - (seated.top + scrollY);
+    block.offsetX += left - (seated.left + originX);
+    block.offsetY += top - (seated.top + originY);
     placeBlock(block);
   }
   function placeBlock(block: ChatBlock) {
     const width = blockWidth(block);
     applyBlockWidth(block);
+    // A page study is pinned to the viewport at her lower left, so it stays in sight while the
+    // reader scrolls instead of drifting off with the page.
+    if (block.anchor.study) {
+      placeStudyBlock(block, width);
+      return;
+    }
     // A bookmark that was dragged keeps the exact page spot it was dropped in, so it stays put
     // through a reload even when the section moved.
     if (block.collapsed && block.chipX != null && block.chipY != null) {
@@ -1341,19 +1605,65 @@ export function createHost(
     // Prefer below the section; step above it only when the viewport has no room below.
     const fitsBelow = rect.bottom + gap + height <= innerHeight - 8;
     const fitsAbove = rect.top - gap - height >= 8;
+    // A whole-page or otherwise oversized anchor has no edge on screen; keep the window in view
+    // near the part of the anchor the reader can actually see.
     const baseTop =
-      !fitsBelow && fitsAbove ? rect.top + scrollY - height - gap : rect.bottom + scrollY + gap;
+      !fitsBelow && !fitsAbove && rect.height > innerHeight - 24
+        ? Math.max(
+            scrollY + 8,
+            Math.min(rect.top + scrollY, scrollY + innerHeight - height - 8),
+          )
+        : !fitsBelow && fitsAbove
+          ? rect.top + scrollY - height - gap
+          : rect.bottom + scrollY + gap;
     // A dragged window keeps its distance from the anchored position through rescrolls and reloads.
     const left = baseLeft + block.offsetX;
     const top = baseTop + block.offsetY;
     block.host.style.setProperty('left', `${Math.round(left)}px`, 'important');
     block.host.style.setProperty('top', `${Math.round(top)}px`, 'important');
   }
+  /** The open study window sits on the viewport's bottom edge, just left of her, and follows when
+   * she is moved; a collapsed bookmark keeps the spot it was given as an independent object. */
+  function placeStudyBlock(block: ChatBlock, width: number) {
+    const box = block.host.getBoundingClientRect();
+    const height = box.height || (block.collapsed ? (block.anchor.study ? 40 : 24) : CHAT_HEIGHT);
+    const gap = 12;
+    const margin = 8;
+    const her = wrapper.getBoundingClientRect();
+    const clampX = (value: number) => Math.max(margin, Math.min(value, innerWidth - width - margin));
+    const clampY = (value: number) =>
+      Math.max(margin, Math.min(value, innerHeight - height - margin));
+    if (block.collapsed && block.chipX != null && block.chipY != null) {
+      block.host.style.setProperty('left', `${Math.round(clampX(block.chipX))}px`, 'important');
+      block.host.style.setProperty('top', `${Math.round(clampY(block.chipY))}px`, 'important');
+      return;
+    }
+    // Her lower-left corner is the anchor: the window's bottom edge lines up with her feet and its
+    // right edge clears her. On a narrow screen it moves above her instead of covering her.
+    let left = clampX(her.left - width - gap);
+    let top = clampY(her.bottom - height);
+    if (her.left - width - gap < margin) {
+      left = clampX(her.left + her.width / 2 - width / 2);
+      top = clampY(her.top - height - gap);
+    }
+    block.host.style.setProperty(
+      'left',
+      `${Math.round(clampX(left + block.offsetX))}px`,
+      'important',
+    );
+    block.host.style.setProperty(
+      'top',
+      `${Math.round(clampY(top + block.offsetY))}px`,
+      'important',
+    );
+  }
   /** The window lives on <html>, independent of the page's own stacking and layout. */
   function attachBlock(block: ChatBlock) {
     if (block.host.parentElement !== document.documentElement)
       document.documentElement.append(block.host);
     placeBlock(block);
+    // A restored thread is laid out only after it joins the page, so scroll it to its newest turn.
+    if (!block.collapsed) block.thread.scrollTop = block.thread.scrollHeight;
   }
   /** A quote is only worth keeping while its text is still in the page and can actually be drawn. */
   function rangeAlive(range: Range | null): range is Range {
@@ -1374,6 +1684,11 @@ export function createHost(
     // the quoted text.
     if (rangeAlive(anchor.range)) return;
     anchor.range = null;
+    if (anchor.study) {
+      // A rebuilt page may have replaced the block the card was seated on; use today's block.
+      if (!elementDraws(anchor.element)) anchor.element = studyElement();
+      return;
+    }
     if (!anchor.text) return;
     const scope =
       (anchor.page != null
@@ -1401,7 +1716,9 @@ export function createHost(
   /** Whether a restored block is still waiting for its text to exist or be redrawn. */
   function blocksNeedRepair(): boolean {
     return blocks.some((block) => {
-      if (block.closed || !block.anchor.text) return false;
+      if (block.closed) return false;
+      if (block.anchor.study) return !block.anchor.element?.isConnected;
+      if (!block.anchor.text) return false;
       const range = block.anchor.range;
       return (
         !range ||
@@ -1458,7 +1775,8 @@ export function createHost(
     block.input.style.height = `${Math.min(110, Math.max(32, block.input.scrollHeight))}px`;
   }
   function syncBlock(block: ChatBlock) {
-    const readable = !!block.anchor.text || block.anchor.images.length > 0;
+    const readable =
+      !!block.anchor.text || block.anchor.images.length > 0 || block.anchor.study === true;
     block.send.disabled = block.busy || !readable || !block.input.value.trim();
     block.model.sync();
     for (const button of block.model.buttons) button.disabled = block.busy;
@@ -1532,7 +1850,7 @@ export function createHost(
       const startY = event.clientY;
       const startWidth = box.width;
       const startHeight = box.height;
-      const startLeft = box.left + scrollX;
+      const startLeft = box.left + (block.anchor.study ? 0 : scrollX);
       try {
         grip.setPointerCapture(event.pointerId);
       } catch {
@@ -1572,7 +1890,7 @@ export function createHost(
       resize(
         clampWidth(box.width + dx),
         clampHeight(box.height + dy),
-        box.left + scrollX,
+        box.left + (block.anchor.study ? 0 : scrollX),
       );
       rememberChatSize(block.width, block.height);
       adoptPlacement(block);
@@ -1619,14 +1937,20 @@ export function createHost(
         }
         moveEvent.preventDefault();
         const box = block.host.getBoundingClientRect();
-        const maxLeft = Math.max(scrollX + 4, scrollX + innerWidth - box.width - 4);
+        const originX = block.anchor.study ? 0 : scrollX;
+        const maxLeft = Math.max(originX + 4, originX + innerWidth - box.width - 4);
         const left = Math.max(
-          scrollX + 4,
+          originX + 4,
           Math.min(startLeft + moveEvent.clientX - startX, maxLeft),
         );
-        const top = Math.max(4, startTop + moveEvent.clientY - startY);
-        block.offsetX = left - baseLeft;
-        block.offsetY = top - baseTop;
+        // A study window is fixed to the viewport, so it cannot be dropped past the bottom edge.
+        const maxTop = block.anchor.study ? Math.max(4, innerHeight - box.height - 4) : Infinity;
+        const top = Math.max(4, Math.min(startTop + moveEvent.clientY - startY, maxTop));
+        // A study bookmark is a free object: dragging it must not drag the open window with it.
+        if (!(block.collapsed && block.anchor.study)) {
+          block.offsetX = left - baseLeft;
+          block.offsetY = top - baseTop;
+        }
         if (block.collapsed) {
           block.chipX = left;
           block.chipY = top;
@@ -1678,16 +2002,17 @@ export function createHost(
     const host = document.createElement('div');
     host.setAttribute('data-fg-chat', '');
     applyTheme(host, current.theme);
-    host.style.cssText =
-      'all:initial!important;display:block!important;position:absolute!important;top:0!important;left:0!important;width:380px!important;z-index:2147483647!important;pointer-events:auto!important;';
+    // A page study stays pinned to the viewport beside her; a section chat scrolls with its words.
+    host.style.cssText = `all:initial!important;display:block!important;position:${anchor.study ? 'fixed' : 'absolute'}!important;top:0!important;left:0!important;width:380px!important;z-index:2147483647!important;pointer-events:auto!important;`;
     const root = host.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = CHAT_CSS;
     const wrap = make('div', 'wrap');
+    if (anchor.study) wrap.classList.add('study');
     const head = make('div', 'head');
     const titles = make('div', 'titles');
     const storedName = stored && typeof stored.name === 'string' ? shortenName(stored.name, 64) : '';
-    const name = storedName || 'New Chat';
+    const name = storedName || (anchor.study ? 'Page study' : 'New Chat');
     const nameEl = make('span', 'name');
     nameEl.textContent = name;
     nameEl.title = name;
@@ -1695,13 +2020,14 @@ export function createHost(
     const collapse = make('button', 'collapse');
     collapse.type = 'button';
     collapse.textContent = '\u2212';
-    collapse.setAttribute('aria-label', 'Collapse section chat');
+    const chatNoun = anchor.study ? 'page chat' : 'section chat';
+    collapse.setAttribute('aria-label', `Collapse ${chatNoun}`);
     collapse.setAttribute('aria-expanded', 'true');
     collapse.title = 'Collapse';
     const close = make('button', 'close');
     close.type = 'button';
     close.textContent = '\u00d7';
-    close.setAttribute('aria-label', 'Close section chat');
+    close.setAttribute('aria-label', `Close ${chatNoun}`);
     const colorButton = make('button', 'color');
     colorButton.type = 'button';
     colorButton.setAttribute('aria-expanded', 'false');
@@ -1718,7 +2044,9 @@ export function createHost(
       swatch.title = option.label;
       palette.append(swatch);
     }
-    head.append(colorButton, titles, collapse, close);
+    // Study has no quote to paint, so it gets no highlight colour to pick.
+    if (anchor.study) head.append(titles, collapse, close);
+    else head.append(colorButton, titles, collapse, close);
     const thread = make('div', 'thread');
     thread.setAttribute('role', 'log');
     thread.setAttribute('aria-live', 'polite');
@@ -1731,8 +2059,11 @@ export function createHost(
     const form = make('form', 'form');
     const input = make('textarea', 'input');
     input.rows = 1;
-    input.placeholder = 'Ask about this section\u2026';
-    input.setAttribute('aria-label', 'Question about the selected section');
+    input.placeholder = anchor.study ? 'Ask about this page\u2026' : 'Ask about this section\u2026';
+    input.setAttribute(
+      'aria-label',
+      anchor.study ? 'Question about this page' : 'Question about the selected section',
+    );
     const send = make('button', 'send');
     send.type = 'submit';
     send.textContent = '\u2191';
@@ -1777,7 +2108,9 @@ export function createHost(
       grip.element.title = grip.hint;
       grip.element.setAttribute('aria-label', grip.label);
     }
-    wrap.append(head, palette, thread, progress, note, form, foot, ...grips.map((grip) => grip.element));
+    wrap.append(head);
+    if (!anchor.study) wrap.append(palette);
+    wrap.append(thread, progress, note, form, foot, ...grips.map((grip) => grip.element));
     root.append(style, wrap);
     const imageCount = anchor.media.length || anchor.images.length;
     note.hidden = !imageCount;
@@ -1899,9 +2232,11 @@ export function createHost(
     host.addEventListener('keydown', (event) => event.stopPropagation());
     syncBlock(block);
     resizeChatInput(block);
+    // A study bookmark's spot is remembered even while the window is open, so collapsing again
+    // returns it to where the reader left it.
+    if (typeof stored?.x === 'number' && Number.isFinite(stored.x)) block.chipX = stored.x;
+    if (typeof stored?.y === 'number' && Number.isFinite(stored.y)) block.chipY = stored.y;
     if (stored?.collapsed === true) {
-      if (typeof stored.x === 'number' && Number.isFinite(stored.x)) block.chipX = stored.x;
-      if (typeof stored.y === 'number' && Number.isFinite(stored.y)) block.chipY = stored.y;
       setCollapsed(block, true, false);
     }
     return block;
@@ -1922,7 +2257,12 @@ export function createHost(
     block.root.querySelector('.wrap')?.classList.toggle('collapsed', next);
     block.collapse.textContent = next ? '+' : '\u2212';
     block.collapse.setAttribute('aria-expanded', String(!next));
-    block.collapse.setAttribute('aria-label', next ? 'Expand section chat' : 'Collapse section chat');
+    block.collapse.setAttribute(
+      'aria-label',
+      next
+        ? `Expand ${block.anchor.study ? 'page chat' : 'section chat'}`
+        : `Collapse ${block.anchor.study ? 'page chat' : 'section chat'}`,
+    );
     block.collapse.title = next ? 'Expand' : 'Collapse';
     if (next) {
       block.palette.hidden = true;
@@ -1930,7 +2270,8 @@ export function createHost(
       // The bookmark keeps the exact page spot it sits in, and expanding again starts there
       // instead of jumping back to the section. A block restored from storage is not in the page
       // yet; its stored spot is already on the block and must not be replaced by the host's 0,0.
-      if (block.host.isConnected) {
+      // A study bookmark keeps its own chipX/chipY instead, seated below at first collapse.
+      if (block.host.isConnected && !block.anchor.study) {
         const left = Number.parseFloat(block.host.style.left);
         const top = Number.parseFloat(block.host.style.top);
         if (Number.isFinite(left) && Number.isFinite(top)) {
@@ -1943,17 +2284,29 @@ export function createHost(
     applyBlockSize(block);
     if (block.host.isConnected) {
       if (!next && wasCollapsed) {
-        block.chipX = null;
-        block.chipY = null;
-        adoptPlacement(block);
-        // A bookmark parked near the right edge must not push the wider window off screen.
-        const box = block.host.getBoundingClientRect();
-        const over = box.left + scrollX - (scrollX + innerWidth - box.width - 4);
-        if (over > 0) {
-          block.offsetX -= over;
+        if (block.anchor.study) {
+          // The fixed window grows from her lower-left; the chip's spot is only the bookmark's.
           placeBlock(block);
+        } else {
+          block.chipX = null;
+          block.chipY = null;
+          adoptPlacement(block);
+          // A bookmark parked near the right edge must not push the wider window off screen.
+          const box = block.host.getBoundingClientRect();
+          const over = box.left + scrollX - (scrollX + innerWidth - box.width - 4);
+          if (over > 0) {
+            block.offsetX -= over;
+            placeBlock(block);
+          }
         }
       } else placeBlock(block);
+      // The first collapse seats the study bookmark by her lower-left; from then on it keeps that
+      // spot, so moving her leaves the bookmark where the reader put it.
+      if (next && block.anchor.study && block.chipX == null) {
+        const box = block.host.getBoundingClientRect();
+        block.chipX = box.left;
+        block.chipY = box.top;
+      }
     }
     if (remember) saveChats();
   }
@@ -1986,7 +2339,7 @@ export function createHost(
     try {
       const result = await requestAsk({
         action: 'title',
-        model: 'deepseek-flash',
+        model: modelChoice,
         text: `Reader: ${question.slice(0, 900)}\n\nBaleen: ${answer.slice(0, 900)}`,
         title: document.title,
       });
@@ -2004,7 +2357,7 @@ export function createHost(
   }
   async function sendChat(block: ChatBlock) {
     if (block.busy || block.closed) return;
-    if (!block.anchor.text && !block.anchor.images.length) return;
+    if (!block.anchor.text && !block.anchor.images.length && !block.anchor.study) return;
     const prompt = block.input.value.trim();
     if (!prompt) return;
     const first = !block.messages.some(
@@ -2032,7 +2385,9 @@ export function createHost(
       const answer = await requestAsk({
         action: 'chat',
         model: modelChoice,
-        text: block.anchor.text,
+        text: block.anchor.study
+          ? findPassages(prompt) || pagePassage()
+          : block.anchor.text,
         images: block.anchor.images,
         title: document.title,
         prompt,
@@ -2045,6 +2400,7 @@ export function createHost(
       block.messages.push({
         role: 'assistant',
         text: reply.text,
+        model: modelChoice,
         reasoning: answer.reasoning,
         thoughtFor: answer.reasoning ? Date.now() - started : undefined,
       });
@@ -2052,7 +2408,7 @@ export function createHost(
         void saveNote(reply.note.key, reply.note.value);
       block.usage.textContent = formatUsage(answer.usage);
       block.copy.hidden = false;
-      if (first) void nameChat(block, prompt, reply.text);
+      if (first && !block.anchor.study) void nameChat(block, prompt, reply.text);
       deliver('happy');
     } catch (error) {
       if (block.closed || token !== block.token) return;
@@ -2104,51 +2460,135 @@ export function createHost(
     lines.push(`- Page: ${document.title || 'Untitled'}`);
     lines.push(`- URL: ${location.href}`);
     lines.push(`- Exported: ${new Date().toISOString()}`);
+    // The model belongs to a conversation, not the page. Replies record the model that wrote them;
+    // turns saved before that was recorded fall back to the selected model, so every chat is named.
+    const chatMeta = (messages: ChatMessage[]) => {
+      const used: Model[] = [];
+      for (const message of messages)
+        if (message.role === 'assistant' && message.model && !used.includes(message.model))
+          used.push(message.model);
+      if (!used.length) used.push(modelChoice);
+      const providers: Provider[] = [];
+      for (const id of used) {
+        const provider = providerForModel(id);
+        if (!providers.includes(provider)) providers.push(provider);
+      }
+      const label = used.length > 1 ? 'Models' : 'Model';
+      lines.push(
+        '',
+        `- ${label}: ${used.map((id) => MODEL_LABELS[id]).join(', ')}`,
+        `- Provider: ${providers.map((id) => PROVIDER_LABELS[id]).join(', ')}`,
+        `- Messages: ${messages.length}`,
+      );
+    };
+    const transcript = (messages: ChatMessage[]) => {
+      lines.push('');
+      for (const message of messages) {
+        const label = message.role === 'user' ? 'You' : 'Baleen';
+        const suffix = message.kind === 'error' ? ' (error)' : '';
+        lines.push(`**${label}${suffix}:**`, message.text, '');
+      }
+    };
     let sections = 0;
     for (const block of blocks) {
       if (!block.messages.some((message) => message.role === 'user')) continue;
       sections += 1;
       lines.push('', `## ${sections}. ${block.name}`);
+      chatMeta(block.messages);
       if (block.anchor.images.length)
         lines.push('', `_Images (text only): ${block.anchor.images.join(' \u00b7 ')}_`);
-      lines.push('');
-      for (const message of block.messages) {
-        const label = message.role === 'user' ? 'You' : 'Baleen';
-        const suffix = message.kind === 'error' ? ' (error)' : '';
-        if (message.reasoning)
-          lines.push(
-            '<details><summary>Thinking</summary>',
-            '',
-            message.reasoning,
-            '',
-            '</details>',
-          );
-        lines.push(`**${label}${suffix}:**`, message.text, '');
-      }
+      transcript(block.messages);
     }
     const talked = talkMessages.some((message) => message.role === 'user');
     if (talked) {
-      lines.push('', '## Reading chat', '');
-      for (const message of talkMessages) {
-        const label = message.role === 'user' ? 'You' : 'Baleen';
-        const suffix = message.kind === 'error' ? ' (error)' : '';
-        lines.push(`**${label}${suffix}:**`, message.text, '');
-      }
+      lines.push('', '## Reading chat');
+      chatMeta(talkMessages);
+      transcript(talkMessages);
     }
     if (!sections && !talked) return '';
     return `${lines.join('\n').trimEnd()}\n`;
   }
-  async function studyPage(action: 'keywords' | 'summarize'): Promise<string> {
+  const STUDY_REQUESTS: Record<'keywords' | 'summarize', { ask: string; progress: string }> = {
+    keywords: { ask: 'Extract the key terms from this page.', progress: 'Finding keywords\u2026' },
+    summarize: { ask: 'Summarize this page.', progress: 'Summarizing\u2026' },
+  };
+  /** Ask a page-wide question and land the answer in the shared page Study chat. */
+  async function runStudy(block: ChatBlock, action: 'keywords' | 'summarize', text: string) {
+    const request = STUDY_REQUESTS[action];
+    block.busy = true;
+    block.messages.push({ role: 'user', text: request.ask });
+    block.usage.textContent = '';
+    block.copy.hidden = true;
+    renderThread(block);
+    syncBlock(block);
+    saveChats();
+    showProgress(block, request.progress);
+    look('thinking');
+    const token = ++block.token;
+    try {
+      const answer = await requestAsk({
+        action,
+        model: modelChoice,
+        text,
+        title: document.title,
+        thinking: false,
+      });
+      if (block.closed || token !== block.token) return;
+      block.messages.push({ role: 'assistant', text: answer.text, model: modelChoice });
+      block.usage.textContent = formatUsage(answer.usage);
+      block.copy.hidden = false;
+      deliver('happy');
+    } catch (error) {
+      if (block.closed || token !== block.token) return;
+      block.messages.push({
+        role: 'assistant',
+        text: error instanceof Error ? error.message : 'Baleen did not answer.',
+        kind: 'error',
+      });
+      deliver('sad');
+    } finally {
+      if (!block.closed && token === block.token) {
+        block.busy = false;
+        hideProgress(block);
+        renderThread(block);
+        syncBlock(block);
+        saveChats();
+      }
+    }
+  }
+  /**
+   * Keywords and Summarize open in a window pinned beside her, not in the popup. One Study chat per
+   * page holds every page-wide action, so asking again reveals the same bookmark instead of
+   * opening another window.
+   */
+  function studyPage(action: 'keywords' | 'summarize') {
     const text = pagePassage();
     if (!text) throw new Error('This page has no readable text to study.');
-    const result = await requestAsk({
-      action,
-      model: modelChoice,
-      text,
-      title: document.title,
-      thinking: false,
-    });
-    return result.text;
+    hideAskChip();
+    const anchor = studyAnchor();
+    const existing = blocks.find((block) => block.key === chatKey(anchor));
+    if (existing) {
+      // The fixed window is already in sight; expanding it is the whole reveal.
+      if (existing.collapsed) setCollapsed(existing, false);
+      const at = existing.messages.findIndex(
+        (message) => message.role === 'user' && message.text === STUDY_REQUESTS[action].ask,
+      );
+      const answered =
+        at >= 0 &&
+        existing.messages
+          .slice(at + 1)
+          .some((message) => message.role === 'assistant' && !message.kind);
+      if (existing.busy || answered) return;
+      void runStudy(existing, action, text);
+      return;
+    }
+    const block = createChatBlock(anchor);
+    blocks.push(block);
+    attachBlock(block);
+    syncModels();
+    saveChats();
+    queueHighlights();
+    void runStudy(block, action, text);
   }
   function saveChats() {
     const items = blocks.map((block) => ({
@@ -2158,6 +2598,7 @@ export function createHost(
       text: block.anchor.text.slice(0, 6000),
       images: block.anchor.images.slice(0, 6),
       page: block.anchor.page,
+      study: block.anchor.study === true ? true : undefined,
       path:
         block.anchor.page == null && block.anchor.element?.isConnected
           ? elementPath(block.anchor.element)
@@ -2169,8 +2610,8 @@ export function createHost(
       dy: Math.round(block.offsetY),
       w: block.width,
       h: block.height,
-      x: block.collapsed && block.chipX != null ? Math.round(block.chipX) : null,
-      y: block.collapsed && block.chipY != null ? Math.round(block.chipY) : null,
+      x: block.chipX != null ? Math.round(block.chipX) : null,
+      y: block.chipY != null ? Math.round(block.chipY) : null,
     }));
     const store = chatStore() ?? sessionStorage;
     const write = (target: Storage, value: unknown[]) => {
@@ -2214,6 +2655,7 @@ export function createHost(
         : [];
       const page =
         typeof item.page === 'number' && Number.isFinite(item.page) ? item.page : null;
+      const study = item.study === true;
       let element =
         page == null && typeof item.path === 'string' ? elementFromPath(item.path) : null;
       if (page == null && text && (!element || !elementHoldsQuote(element, text))) {
@@ -2222,7 +2664,7 @@ export function createHost(
         const around = found ? elementAroundRange(found) : null;
         if (around) element = around;
       }
-      if (page == null && !element && !text && !images.length) continue;
+      if (page == null && !element && !text && !images.length && !study) continue;
       const messages: ChatMessage[] = Array.isArray(item.messages)
         ? item.messages
             .filter(
@@ -2238,6 +2680,10 @@ export function createHost(
               role: message.role,
               text: message.text.slice(0, 8000),
               ...(message.kind === 'error' ? { kind: 'error' as const } : {}),
+              ...(typeof message.model === 'string' &&
+              (MODELS as readonly string[]).includes(message.model)
+                ? { model: message.model as Model }
+                : {}),
               ...(typeof message.reasoning === 'string' && message.reasoning.trim()
                 ? { reasoning: message.reasoning.slice(0, 12_000) }
                 : {}),
@@ -2255,6 +2701,7 @@ export function createHost(
         words: text.split(/\s+/).filter(Boolean).length,
         element,
         page,
+        ...(study ? { study: true } : {}),
       };
       if (blocks.some((block) => block.key === chatKey(anchor))) continue;
       const block = createChatBlock(anchor, messages, item);
@@ -2318,10 +2765,12 @@ export function createHost(
   }
   // A settled selection offers a conversation; it never opens one on its own, so a drag is never
   // interrupted and the browser keeps its selection and copy behavior.
+  // Mounted after the companion host so it ties at the top z-index and wins the tree order; the
+  // section highlights live in that host and must never paint over the chip.
   const askHost = document.createElement('div');
   askHost.id = 'fungusan-ask';
   askHost.style.cssText =
-    'all:initial!important;position:fixed!important;top:0!important;left:0!important;z-index:2147483646!important;display:none!important;pointer-events:auto!important;';
+    'all:initial!important;position:fixed!important;top:0!important;left:0!important;z-index:2147483647!important;display:none!important;pointer-events:auto!important;';
   const askRoot = askHost.attachShadow({ mode: 'open' });
   const askStyle = document.createElement('style');
   askStyle.textContent = ASK_CSS;
@@ -2330,10 +2779,8 @@ export function createHost(
   askButton.title = 'Open a section chat';
   askButton.setAttribute('aria-label', 'Ask Baleen about the selected text');
   askButton.innerHTML =
-    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8l-3 2.5V11.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1Z"/></svg>';
-  const askLabel = document.createElement('span');
-  askLabel.textContent = 'Ask Baleen';
-  askButton.append(askLabel);
+    '<svg class="ask-mark" viewBox="0 0 128 128" aria-hidden="true"><g transform="scale(0.091429)"><path fill="#0E2A55" fill-rule="evenodd" d="M92.3 242 L100 241.5 L104.4 244 L114.7 267 L123.6 282 L151 312.4 L183 337.4 L229 364.3 L261 378.4 L303 392.5 L356 404.5 L435 416.6 L467 424.6 L497 434.6 L538 452.8 L564 467.5 L594 488.5 L616.9 509 L632.5 525 L648.5 545 L666.5 573 L676.5 592 L692.3 631 L716.7 714 L732.6 760 L748.6 799 L773.7 851 L813.5 920 L845.7 968 L865 993.5 L887 988.5 L925 984.5 L966 984.5 L1010 989.5 L1041 995.5 L1085 1007.5 L1132 1024.5 L1174 1043 L1171 1043.4 L1117 1026.5 L1075 1017.5 L1036 1011.5 L993 1007.5 L946 1006.5 L903 1009.5 L861 1016.5 L825.2 1027 L842 1018.5 L868 1009.5 L860 1008.5 L813 1017.5 L786 1025.5 L765 1036.5 L740 1052.7 L725 1064.5 L711 1078.5 L694.5 1055 L680 1040.5 L646 1026.5 L606 1006.5 L578 998.5 L554 994.5 L541.5 994 L557 1006.5 L563.5 1013 L563 1014.3 L530 998.5 L478 985.5 L429 979.5 L370 978.5 L329 981.5 L301 985.5 L257 995.5 L217.1 1009 L233 995.5 L252 983.5 L281 969.5 L315 957.5 L338 951.5 L374 945.5 L398 943.5 L439 943.5 L470 946.5 L505 952.5 L561 968.5 L607 988.5 L643 1009.6 L658 1021.5 L658.4 1019 L650.5 1000 L636.5 974 L599.3 918 L565.3 876 L519 827.6 L479 791.9 L438 759.6 L314 675.5 L250 627.4 L221 602.5 L192.5 575 L170.5 551 L145.6 520 L120.5 483 L95.5 437 L80.7 401 L69.5 362 L65.5 336 L65.5 304 L67.6 289 L71.7 273 L78.5 257 L84.5 248 L92.3 242 Z M1295.8 242 L1303 241.5 L1312.5 249 L1324.5 273 L1329.5 293 L1331.4 309 L1330.5 347 L1322.4 388 L1306.4 433 L1283.5 478 L1259.4 515 L1239.4 541 L1213.5 570 L1183 599.5 L1154 624.5 L1095 668.4 L973 751.8 L910 802.7 L865.6 846 L824 896.6 L796.5 841 L769.5 773 L749.6 708 L737.5 651 L734.5 623 L734.5 607 L737.5 585 L745.5 561 L765.6 528 L791 500.5 L824 474.6 L852 457.5 L894 437.5 L933 423.5 L966 414.5 L996 408.6 L1061 399.5 L1109 388.5 L1157 371.5 L1194 353.5 L1233 327.4 L1257.3 305 L1277.5 279 L1285.2 264 L1290.5 248 L1295.8 242 Z M357.1 998 L402 997.5 L461 1003.5 L507 1013.5 L554 1029.6 L593 1048.6 L632 1074.5 L665.4 1104 L691 1133.6 L710 1112.3 L732 1092.5 L755 1076.7 L783 1061.5 L814 1048.7 L843 1039.5 L874 1032.5 L902 1028.5 L967 1026.5 L1009 1029.6 L1052 1035.5 L1097 1044.5 L1135 1054.6 L1172 1066.5 L1207.3 1081 L1131 1071.5 L1079 1068.5 L1016 1069.5 L951 1076.5 L894 1087.5 L839 1102.5 L779 1123.5 L703 1155.5 L697 1157.5 L687 1157.5 L599 1111.7 L543 1086.5 L490 1067.7 L431 1051.5 L371 1039.5 L308 1031.5 L242 1030.5 L183 1036.5 L216 1023.5 L262 1010.5 L311 1001.6 L357.1 998 Z"/></g></svg>' +
+    '<span class="ask-label">Ask</span>';
   askRoot.append(askStyle, askButton);
   let pendingCapture: SectionCapture | null = null;
   let askTimer = 0;
@@ -2362,7 +2809,9 @@ export function createHost(
     askTimer = 0;
     askHeld = false;
     pendingCapture = null;
+    const wasOpen = askHost.style.getPropertyValue('display') === 'block';
     askHost.style.setProperty('display', 'none', 'important');
+    if (wasOpen) settleLook();
   }
   function revealAskChip() {
     if (focusedBlock()) {
@@ -2387,8 +2836,11 @@ export function createHost(
     let top = line.bottom + 8;
     if (left + pill.width > innerWidth - 8) left = Math.max(8, line.right - pill.width);
     if (top + pill.height > innerHeight - 8) top = Math.max(8, line.top - pill.height - 8);
+    // The hover word needs room; near the right edge it opens to the left instead.
+    askButton.dataset.side = left + pill.width + 54 > innerWidth - 8 ? 'left' : 'right';
     askHost.style.setProperty('left', `${Math.round(left)}px`, 'important');
     askHost.style.setProperty('top', `${Math.round(top)}px`, 'important');
+    look('listen');
   }
   function queueAskChip() {
     window.clearTimeout(askTimer);
@@ -2433,6 +2885,25 @@ export function createHost(
       }
     },
     { capture: true, signal: abort.signal },
+  );
+  // Coming back to the tab after a real absence earns one hop; a quick alt-tab earns nothing, and
+  // the five-minute cooldown keeps a day of tab switching from turning into a greeting machine.
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.hidden) {
+        hiddenSince = Date.now();
+        return;
+      }
+      const away = hiddenSince ? Date.now() - hiddenSince : 0;
+      hiddenSince = 0;
+      if (away < 30_000 || Date.now() < nextGreetingAt) return;
+      if (!current.animate || talkBusy || Date.now() < toneUntil) return;
+      if (!say.hidden || focusedBlock()) return;
+      nextGreetingAt = Date.now() + 5 * 60_000;
+      look('happy', 1600);
+    },
+    { signal: abort.signal },
   );
   // A settled selection offers the action instead of opening a conversation, so a paused drag is
   // never cut short and the browser keeps its selection for copying.
@@ -2493,6 +2964,9 @@ export function createHost(
     wrapper.style.left = `${x}px`;
     wrapper.style.top = `${y}px`;
     fitPanel();
+    // The open study window lives beside her and moves with her; a collapsed bookmark is its own
+    // object and stays exactly where the reader left it.
+    for (const block of blocks) if (block.anchor.study && !block.collapsed) placeBlock(block);
   }
   function persist() {
     const distances = [x, innerWidth - width - x, y, innerHeight - height - y];
@@ -2530,6 +3004,7 @@ export function createHost(
   function apply(value: Settings) {
     current = value;
     wrapper.dataset.hidden = String(value.hidden);
+    wrapper.dataset.animated = String(value.animate);
     if (value.hidden) closeTalk();
     modelChoice = value.model;
     applyTheme(wrapper, value.theme);
@@ -2626,6 +3101,7 @@ export function createHost(
     apply,
     study: studyPage,
     exportChats: chatHistoryMarkdown,
+    clearTalk,
     closeChats: closeAllChats,
     chatCount: () => blocks.length,
     destroy() {

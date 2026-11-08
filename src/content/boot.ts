@@ -29,18 +29,24 @@ export function bootCompanion() {
         reply({ ok: false, error: 'This page is still loading. Try again in a moment.' });
         return;
       }
-      controller.study(action).then(
-        (text) => reply({ ok: true, data: { text } }),
-        (error) =>
-          reply({
-            ok: false,
-            error: error instanceof Error ? error.message : 'Study did not finish.',
-          }),
-      );
-      return true;
+      try {
+        // The answer lands in a chat on the page; the popup only acknowledges and closes.
+        controller.study(action);
+        reply({ ok: true, data: {} });
+      } catch (error) {
+        reply({
+          ok: false,
+          error: error instanceof Error ? error.message : 'Study did not start.',
+        });
+      }
+      return;
     }
     if (m?.type === 'fg:export-chats') {
       reply({ ok: true, data: { text: controller?.exportChats() ?? '' } });
+      return;
+    }
+    if (m?.type === 'fg:clear-talk') {
+      reply({ ok: true, data: { count: controller?.clearTalk() ?? 0 } });
       return;
     }
     if (m?.type === 'fg:close-chats') {

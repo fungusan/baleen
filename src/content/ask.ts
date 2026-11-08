@@ -20,7 +20,7 @@ export interface SectionCapture {
   /** Frozen at selection time so the block survives a focus change into its own input. */
   range: Range;
   text: string;
-  /** Alt text and captions only: DeepSeek's API is text-only, so image pixels are never sent. */
+  /** Alt text and captions only: Baleen sends text, so image pixels are never sent. */
   images: string[];
   /** Image nodes covered by the selection, outlined along with the text while the block is open. */
   media: HTMLImageElement[];
@@ -83,7 +83,7 @@ function imageLabel(image: HTMLImageElement): string {
 }
 /**
  * Snapshot of the selected section: its text and any images whose alt text or caption can stand in
- * for the pixels DeepSeek cannot see. Images are gathered from the same figure or from the area the
+ * for the pixels the model never sees. Images are gathered from the same figure or from the area the
  * selection covers, never from the whole article.
  */
 export function captureSection(): SectionCapture | null {

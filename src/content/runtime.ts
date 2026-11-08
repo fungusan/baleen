@@ -40,11 +40,14 @@ export async function startCompanion() {
       if (!disposed) reconcile(await readSettings());
     },
     study(action: 'keywords' | 'summarize') {
-      if (!mounted) return Promise.reject(new Error('Baleen is still starting. Try again.'));
-      return mounted.study(action);
+      if (!mounted) throw new Error('Baleen is still starting. Try again.');
+      mounted.study(action);
     },
     exportChats() {
       return mounted?.exportChats() ?? '';
+    },
+    clearTalk() {
+      return mounted?.clearTalk() ?? 0;
     },
     closeChats() {
       return mounted?.closeChats() ?? 0;

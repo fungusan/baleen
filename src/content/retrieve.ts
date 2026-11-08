@@ -1,7 +1,7 @@
 import { pagePassage } from './ask';
 
 /**
- * Cheap, local passage search. Instead of shipping the whole page to DeepSeek, chunks are ranked
+ * Cheap, local passage search. Instead of shipping the whole page to the model, chunks are ranked
  * against the question and only the best few travel with the request. No model call is spent
  * choosing them, and the page never leaves the tab except through the final request.
  */
