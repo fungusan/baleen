@@ -120,14 +120,17 @@ After any grade, re-run `art_qa.py` for the same-outfit gate and confirm the int
 
 ### 6. Export and ship
 
-Four supplied masters ship, and the chat model chooses which one is drawn:
+Six supplied masters ship. A model's first drawing is its default, and a model with more than one
+offers the rest under **Appearance › Outfit**:
 
 | Art id | Shown for | Source | Export |
 | --- | --- | --- | --- |
-| `baleen` | DeepSeek V4 Pro | `raw/master-idle-v2.png` (maid cut-out) | 575x1040, aspect 0.553 |
-| `baleen-flash` | DeepSeek Flash | `raw/flash-master.png` (notebook drawing) | 543x1040, aspect 0.522 |
-| `baleen-kimi` | Kimi K3 | `raw/kimi-moonlit-nobg.png` (Leonardo `remove-bg` of `kimi-moonlit-master.png`) | 556x1040, aspect 0.5346 |
-| `baleen-kimi-halloween` | Kimi K3.1 Pro | `raw/kimi-halloween-nobg.png` (Leonardo `remove-bg` of the flattened cat master) | 559x1040, aspect 0.5375 |
+| `baleen` | DeepSeek V4 Pro (Maid) | `raw/master-idle-v2.png` (maid cut-out) | 575x1040, aspect 0.553 |
+| `baleen-pro-witch` | DeepSeek V4 Pro (Witch) | `raw/pro-witch-master.png` (supplied transparent moon-staff gown) | 577x1040, aspect 0.5548 |
+| `baleen-flash` | DeepSeek Flash (Maid) | `raw/flash-master.png` (notebook drawing) | 543x1040, aspect 0.522 |
+| `baleen-flash-witch` | DeepSeek Flash (Witch) | `raw/flash-witch-master.png` (supplied transparent broom render) | 576x1040, aspect 0.5538 |
+| `baleen-kimi` | Kimi K3 (Moonlit) | `raw/kimi-moonlit-nobg.png` (Leonardo `remove-bg` of `kimi-moonlit-master.png`) | 556x1040, aspect 0.5346 |
+| `baleen-kimi-halloween` | Kimi K3.1 Pro (Pumpkin) | `raw/kimi-halloween-nobg.png` (Leonardo `remove-bg` of the flattened cat master) | 559x1040, aspect 0.5375 |
 
 ```sh
 # Leonardo's remover (remove.bg's engine): sync, one fixed price, ephemeral result.
@@ -147,6 +150,12 @@ and on the cat it tightened a very soft supplied alpha (partial pixels 21.8k →
 Export the cut-out by trimming at alpha > 2 and resizing premultiplied (`convert("RGBa")`) to
 height 1040; do not run it through `key_art.py --bg alpha`, whose flat-white band pass targets
 white-composited cut-outs.
+
+The witch masters arrived already transparent, bats included, so they skipped matting and were
+trimmed and resized directly: the broom for Flash and the moon-staff gown for V4 Pro (the gown's
+matte is soft but clean — low-alpha pixels keep the figure's own dark purple, not a white rim). The
+earlier wisteria-swing drawing (`swing-master.png` and its Leonardo `remove-bg` cut-out) is kept
+beside them as a supplied source but is not exported or shipped.
 
 ```sh
 # Local keyer for the two DeepSeek masters:
@@ -208,8 +217,12 @@ The character is derivative fan art:
 
 - DeepSeek 娘化 ("AI娘化") by **ZipZipPipe** — <https://www.pixiv.net/en/artworks/148186519>.
   Terms stated by the artist: credit the author, no commercial use.
-- The moonlit flute and pumpkin cat Kimi costumes are also ZipZipPipe renders. Kimi is a Moonshot AI
-  character: non-commercial fan art only, with no affiliation or endorsement implied.
+- The moonlit flute and pumpkin cat Kimi costumes and both witch drawings are also ZipZipPipe
+  renders. Kimi is a Moonshot AI character: non-commercial fan art only, with no affiliation or
+  endorsement implied.
+- The unused wisteria-swing source (`raw/swing-master.png`) is by **阮米糕**, who publishes on Pixiv
+  and X under that name. The artist's terms: credit the source when reposting, no commercial use
+  (转载请标明出处，禁止商用). It is kept as source only and no build ships it.
 - Original whale-girl OC 溟月 by **上善** — <https://www.pixiv.net/en/users/62155430>, reused under
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 

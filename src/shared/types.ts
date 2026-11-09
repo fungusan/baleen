@@ -1,7 +1,9 @@
-// The shipped characters. IDs are the art keys; the selected model decides which one is drawn.
+// The shipped drawings. IDs are the art keys; a model offers one or more of them as costumes.
 export const CHARACTER_IDS = [
   'baleen',
   'baleen-flash',
+  'baleen-flash-witch',
+  'baleen-pro-witch',
   'baleen-kimi',
   'baleen-kimi-halloween',
 ] as const;
@@ -28,12 +30,7 @@ export const PROVIDER_HOSTS: Record<Provider, string> = {
   moonshot: 'api.moonshot.ai',
 };
 // The chat models exposed in the UI, keyed by the provider that serves them.
-export const MODELS = [
-  'deepseek-v4-pro',
-  'deepseek-flash',
-  'kimi-k3.1-pro',
-  'kimi-k3',
-] as const;
+export const MODELS = ['deepseek-v4-pro', 'deepseek-flash', 'kimi-k3.1-pro', 'kimi-k3'] as const;
 export type Model = (typeof MODELS)[number];
 export const MODEL_PROVIDER: Record<Model, Provider> = {
   'deepseek-flash': 'deepseek',
@@ -63,16 +60,18 @@ export const MODEL_META: Record<Model, string> = {
 export const DEFAULT_MODEL: Model = 'deepseek-flash';
 export const providerForModel = (model: Model): Provider => MODEL_PROVIDER[model];
 export interface Settings {
-  version: 8;
+  version: 9;
   theme: Theme;
   scale: number;
   hidden: boolean;
   animate: boolean;
   position: Position | null;
   model: Model;
+  /** The drawing chosen per model; a missing or stale entry falls back to the model's first. */
+  outfits: Partial<Record<Model, CharacterId>>;
 }
 export type SettingsPatch = Partial<
-  Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model'>
+  Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model' | 'outfits'>
 >;
 export type AskAction = 'chat' | 'talk' | 'summarize' | 'keywords' | 'title' | 'wiki';
 /** Which conversation family an export or action belongs to. */

@@ -2,9 +2,11 @@ import './popup.css';
 import { clearApiKey, normalizeApiKey, readApiKey, writeApiKey } from '../shared/key';
 import { readSettings, watchSettings } from '../shared/settings';
 import { deleteNote, readNotes, saveNote, watchNotes, type NoteEntry } from '../shared/notes';
+import { characterById, costumeFor, costumesFor } from '../shared/characters';
 import { MODEL_META, MODEL_SHORT, MODELS, PROVIDER_HOSTS, PROVIDER_LABELS, providerForModel } from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
 import type {
+  CharacterId,
   ChatExportScope,
   Model,
   Provider,
@@ -33,7 +35,7 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <div class="row"><span class="label" id="theme-label">Theme</span><div class="seg" id="theme" role="radiogroup" aria-labelledby="theme-label"><label><input type="radio" name="theme" value="system"><span>System</span></label><label><input type="radio" name="theme" value="light"><span>Light</span></label><label><input type="radio" name="theme" value="dark"><span>Dark</span></label></div></div>
 <div class="row"><span class="label" id="visible-label">Show on pages</span><button id="visible" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="visible-label" title="${VISIBLE_HINT}"></button></div>
 <div class="slider"><label class="label" for="scale">Size</label><output id="size-label" class="value" for="scale">100%</output><input id="scale" type="range" min="0.6" max="1.6" step="0.1" value="1"></div>
-<div class="row"><span class="label" id="animate-label">Animate</span><button id="animate" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="animate-label"></button></div>
+<div class="row"><span class="label" id="animate-label">Animate</span><div class="row-tools"><button id="animate" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="animate-label"></button><div class="seg" id="outfit" role="radiogroup" aria-label="Outfit" hidden></div></div></div>
 </section>
 <p class="sec" id="connection-label">Connection</p>
 <section class="card" aria-labelledby="connection-label">
@@ -239,8 +241,37 @@ async function main() {
     must('#model-icon').innerHTML = modelIcon(value.model);
     for (const choice of modelChoices)
       choice.setAttribute('aria-selected', String(choice.dataset.model === value.model));
+    paintOutfits(value);
     void loadKey();
   }
+  const outfitGroup = must<HTMLElement>('#outfit');
+  let outfitModel: Model | null = null;
+  /** The outfit choices sit on the Animate row and only exist for a model with several drawings. */
+  function paintOutfits(value: Settings) {
+    const ids = costumesFor(value.model);
+    outfitGroup.hidden = ids.length < 2;
+    if (outfitModel !== value.model) {
+      outfitModel = value.model;
+      outfitGroup.innerHTML = ids
+        .map(
+          (id) =>
+            `<label><input type="radio" name="outfit" value="${id}"><span>${characterById(id).label}</span></label>`,
+        )
+        .join('');
+    }
+    const selected = costumeFor(value.model, value.outfits);
+    for (const input of outfitGroup.querySelectorAll<HTMLInputElement>('input'))
+      input.checked = input.value === selected;
+  }
+  outfitGroup.onchange = (event) => {
+    const id = (event.target as HTMLInputElement).value as CharacterId;
+    const outfits = { ...settings.outfits, [settings.model]: id };
+    render({ ...settings, outfits });
+    void send({ outfits }).catch((error) => {
+      report(error);
+      void readSettings().then(render);
+    });
+  };
   const scale = must<HTMLInputElement>('#scale');
   scale.oninput = () => {
     must('#size-label').textContent = `${Math.round(Number(scale.value) * 100)}%`;

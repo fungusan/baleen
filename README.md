@@ -1,6 +1,6 @@
 # Baleen
 
-Manifest V3 Chromium extension (`1.3.0`). She appears on every HTTP(S) page as one of four idle
+Manifest V3 Chromium extension (`1.3.0`). She appears on every HTTP(S) page as one of six idle
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
 section you highlight, and runs keywords or a whole-page summary through the DeepSeek or Kimi API
 using your own key. Top-level PDFs open in a bundled reader with the same selection chat and Study
@@ -9,10 +9,12 @@ memory of you, and open section chats are saved in the extension.
 
 ## Companion
 
-Baleen has four drawings chosen by the chat model: the maid for **V4 Pro**, the notebook version
-for **Flash**, the pumpkin cat for **Kimi K3.1 Pro**, and the moonlit flute dress for **Kimi K3**.
+Baleen has six drawings. Each DeepSeek model pairs a **Maid** with a **Witch** — the original maid
+and the moon-staff gown for **V4 Pro**, the notebook maid and the broom for **Flash** — and the
+Kimi models keep their costumes: the pumpkin cat for **Kimi K3.1 Pro** and the moonlit flute dress
+for **Kimi K3**. Every pair is switchable under **Appearance › Outfit**.
 Neither adds buttons to the page. The toolbar popup keeps the original
-compact panel: **Appearance** (theme, show on pages, size, animate) and **Connection** (API key,
+compact panel: **Appearance** (theme, show on pages, size, animate, outfit) and **Connection** (API key,
 model, and memory). Each provider keeps its own key, so switching between DeepSeek and Kimi swaps
 the key row. **Study** opens a second level in the same popup for keywords, summarize, and one chats
 card with two choices — **Reading chat** and **Study chats** — each revealing its export and clear or
@@ -221,6 +223,11 @@ The character renders are derivative fan art, not original work for this project
 - Kimi costumes: the moonlit flute dress and the pumpkin cat are also renders by ZipZipPipe. Kimi is
   a Moonshot AI character; they are used here as non-commercial fan art and imply no affiliation
   with or endorsement by Moonshot.
+- Flash costume: the broom witch is also a ZipZipPipe render.
+- Pro costume: the moon-staff witch gown is a ZipZipPipe render.
+- Kept source, not bundled: the wisteria-swing drawing by 阮米糕 (Pixiv and X under that name;
+  credit the source when reposting, no commercial use) stays under `art-src/baleen/raw/` as a
+  supplied master for a future look, but no build ships it.
 - Original design: the whale-girl OC 溟月 by [上善](https://www.pixiv.net/en/users/62155430),
   reused under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 - This build keeps every condition: the credit is shown in the popup footer and attributed here,
@@ -228,6 +235,7 @@ The character renders are derivative fan art, not original work for this project
 
 Processing: the supplied drawings are matted off their backgrounds — the maid cut-out's flat-white
 band and hair-loop pockets, and the Flash, moonlit and pumpkin drawings' off-white pages, are removed
-while the shaded white of the aprons, notebook, ruffles and socks is kept — then normalised to one
-solid-alpha height. The toolbar icon is a separate whale-tail mark, not derived from the character art.
-The art process is in `art-src/baleen/WORKFLOW.md`. See `LICENSE`.
+while the shaded white of the aprons, notebook, ruffles and socks is kept. The broom witch arrived
+already transparent, bats included. Every render is then trimmed and normalised to one solid-alpha
+height. The toolbar icon is a separate whale-tail mark, not derived from the character art. The art
+process is in `art-src/baleen/WORKFLOW.md`. See `LICENSE`.

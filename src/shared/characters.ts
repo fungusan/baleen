@@ -4,44 +4,74 @@ export interface Character {
   id: CharacterId;
   /** Accessible name for the card. */
   name: string;
+  /** Costume name, shown when a model offers more than one drawing. */
+  label: string;
   /** Glow colour, taken from the character's palette in the supplied art. */
   accent: string;
   /** Width / height of the trimmed full-body art, so the overlay box hugs the figure. */
   aspect: number;
 }
-// The chat model chooses which drawing is on the page: the maid for V4 Pro, the notebook for Flash,
-// the pumpkin cat for Kimi K3.1 Pro and the moonlit flute dress for Kimi K3. There is no outfit picker.
+// A model offers one or more drawings and the reader picks among them. Both DeepSeek models pair
+// their maid with a witch: the broom for Flash and the moon-staff gown for V4 Pro. Kimi keeps one
+// costume per model: the pumpkin cat for K3.1 Pro and the moonlit flute dress for K3.
 export const CHARACTERS: readonly Character[] = [
   {
     id: 'baleen',
     name: 'Baleen',
+    label: 'Maid',
     accent: '#2f4a8a',
     aspect: 0.553,
   },
   {
     id: 'baleen-flash',
     name: 'Baleen',
+    label: 'Maid',
     accent: '#2f4a8a',
     aspect: 0.522,
   },
   {
+    id: 'baleen-flash-witch',
+    name: 'Baleen',
+    label: 'Witch',
+    accent: '#5d468c',
+    aspect: 0.5538,
+  },
+  {
+    id: 'baleen-pro-witch',
+    name: 'Baleen',
+    label: 'Witch',
+    accent: '#5b4a7e',
+    aspect: 0.5548,
+  },
+  {
     id: 'baleen-kimi',
     name: 'Baleen',
+    label: 'Moonlit',
     accent: '#3b3f7a',
     aspect: 0.5346,
   },
   {
     id: 'baleen-kimi-halloween',
     name: 'Baleen',
+    label: 'Pumpkin',
     accent: '#b8601f',
     aspect: 0.5375,
   },
 ];
-export const characterForModel = (model: Model): CharacterId => {
-  if (model === 'deepseek-v4-pro') return 'baleen';
-  if (model === 'kimi-k3.1-pro') return 'baleen-kimi-halloween';
-  if (model === 'kimi-k3') return 'baleen-kimi';
-  return 'baleen-flash';
+const COSTUMES: Record<Model, readonly CharacterId[]> = {
+  'deepseek-v4-pro': ['baleen', 'baleen-pro-witch'],
+  'deepseek-flash': ['baleen-flash', 'baleen-flash-witch'],
+  'kimi-k3.1-pro': ['baleen-kimi-halloween'],
+  'kimi-k3': ['baleen-kimi'],
+};
+export const costumesFor = (model: Model): readonly CharacterId[] => COSTUMES[model];
+/** The chosen drawing for a model, falling back to its first when nothing valid was stored. */
+export const costumeFor = (
+  model: Model,
+  outfits: Partial<Record<Model, CharacterId>>,
+): CharacterId => {
+  const chosen = outfits[model];
+  return chosen && COSTUMES[model].includes(chosen) ? chosen : COSTUMES[model][0];
 };
 export const characterById = (id: CharacterId): Character =>
   CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
@@ -49,7 +79,7 @@ export const characterById = (id: CharacterId): Character =>
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '35';
+const ART_REVISION = '38';
 const assetVersion = () => {
   try {
     const version =

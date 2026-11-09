@@ -4,7 +4,7 @@ import { captureSection, pagePassage, requestAsk, type SectionCapture } from './
 import { findPassages, viewportPassage, wikiPassages } from './retrieve';
 import { notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
 import { asksAboutBaleen } from '../shared/help';
-import { characterById, characterForModel } from '../shared/characters';
+import { characterById, costumeFor } from '../shared/characters';
 import {
   MODELS,
   MODEL_LABELS,
@@ -804,7 +804,7 @@ export function createHost(
   `;
   const wrapper = document.createElement('div');
   wrapper.className = 'companion';
-  const character = createCharacter(characterForModel(initial.model));
+  const character = createCharacter(costumeFor(initial.model, initial.outfits));
   const grip = document.createElement('button');
   grip.className = 'grip';
   grip.setAttribute(
@@ -3047,7 +3047,7 @@ export function createHost(
     });
   }
   function resize(scale: number) {
-    const art = characterById(characterForModel(current.model));
+    const art = characterById(costumeFor(current.model, current.outfits));
     // Trimmed art: this is the height of the drawn figure, not of a padded canvas.
     height = Math.min(
       // 312 is what 120% used to draw; 100% now means that size.
@@ -3074,7 +3074,7 @@ export function createHost(
     applyTheme(askHost, value.theme);
     for (const block of blocks) applyTheme(block.host, value.theme);
     syncModels();
-    character.setCharacter(characterForModel(value.model));
+    character.setCharacter(costumeFor(value.model, value.outfits));
     character.setAnimated(value.animate);
     resize(value.scale);
     // The viewport moved the anchor rects and may have changed how much room a window has, so the

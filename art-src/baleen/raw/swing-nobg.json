@@ -1,0 +1,9 @@
+{
+  "model": "remove-bg",
+  "id": "1f1dc343-580f-6550-9583-8707f3e2f409",
+  "source": "art-src/baleen/raw/swing-master.png",
+  "imageId": "a07b82d3-c938-403b-83d8-a947e40d9cb4",
+  "cost": "0.1047",
+  "unit": "DOLLARS",
+  "output": "art-src/baleen/raw/swing-nobg.png"
+}

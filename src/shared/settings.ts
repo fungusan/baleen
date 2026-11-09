@@ -1,5 +1,6 @@
+import { costumesFor } from './characters';
 import { DEFAULT_MODEL, MODELS, THEMES } from './types';
-import type { Model, Settings, Theme } from './types';
+import type { CharacterId, Model, Settings, Theme } from './types';
 
 const record = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -7,11 +8,25 @@ const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fa
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 // A retired model id still stored on an install maps to its surviving sibling instead of
 // quietly dropping the reader back to the default model.
-const LEGACY_MODELS: Record<string, Model> = { 'kimi-k3.1-pro-highspeed': 'kimi-k3.1-pro' };
+const LEGACY_MODELS: Record<string, Model> = {
+  'kimi-k3.1-pro-highspeed': 'kimi-k3.1-pro',
+  'deepseek-v4-flash': 'deepseek-flash',
+};
 const model = (v: unknown): Model => {
   if (typeof v !== 'string') return DEFAULT_MODEL;
   const id = LEGACY_MODELS[v] ?? v;
   return (MODELS as readonly string[]).includes(id) ? (id as Model) : DEFAULT_MODEL;
+};
+/** Keeps only drawings the model actually offers, so a renamed or removed one falls back. */
+const outfits = (v: unknown): Partial<Record<Model, CharacterId>> => {
+  const raw = record(v);
+  const kept: Partial<Record<Model, CharacterId>> = {};
+  for (const id of MODELS) {
+    const chosen = raw[id];
+    if (typeof chosen === 'string' && (costumesFor(id) as readonly string[]).includes(chosen))
+      kept[id] = chosen as CharacterId;
+  }
+  return kept;
 };
 const theme = (v: unknown): Theme =>
   typeof v === 'string' && (THEMES as readonly string[]).includes(v) ? (v as Theme) : 'system';
@@ -19,7 +34,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   const v = record(raw);
   const p = record(v.position);
   return {
-    version: 8,
+    version: 9,
     theme: theme(v.theme),
     scale: finite(v.scale) ? Math.max(0.6, Math.min(1.6, v.scale)) : 1,
     hidden: bool(v.hidden, false),
@@ -29,6 +44,7 @@ export function sanitizeSettings(raw: unknown): Settings {
         ? { x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)) }
         : null,
     model: model(v.model),
+    outfits: outfits(v.outfits),
   };
 }
 // Deliberately unchanged across the rename: the key is what keeps an existing install's

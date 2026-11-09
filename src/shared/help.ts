@@ -5,7 +5,7 @@
  */
 export const BALEEN_HELP = `About Baleen (internal documentation about this extension; trusted reference, not page data)
 
-Baleen is a reading companion extension. Its settings live in the toolbar popup: Appearance (Theme, Show on pages, Size, Animate), Connection (an API key, the model, and Memory), and Study. Flash is fast and V4 Pro is stronger, both served by DeepSeek; Kimi K3.1 Pro is Kimi's flagship and Kimi K3 is the previous generation, both served by Kimi. Each provider keeps its own key, and the key row follows the model you pick. Memory sits at the bottom of Connection and opens its own page, where you can view, edit, or delete what Baleen remembers, five entries per page. Study opens a second level that leads with Wiki and keeps Keywords and Summarize as two small buttons beneath it, then a Chats card where Reading chat and Study chats each reveal their own two actions; Back returns to the settings.
+Baleen is a reading companion extension. Its settings live in the toolbar popup: Appearance (Theme, Show on pages, Size, Animate, and an Outfit row when the selected model has more than one drawing), Connection (an API key, the model, and Memory), and Study. Flash is fast and V4 Pro is stronger, both served by DeepSeek; Kimi K3.1 Pro is Kimi's flagship and Kimi K3 is the previous generation, both served by Kimi. Each provider keeps its own key, and the key row follows the model you pick. Memory sits at the bottom of Connection and opens its own page, where you can view, edit, or delete what Baleen remembers, five entries per page. Study opens a second level that leads with Wiki and keeps Keywords and Summarize as two small buttons beneath it, then a Chats card where Reading chat and Study chats each reveal their own two actions; Back returns to the settings.
 
 Reading chat: click Baleen, or focus her and press Enter, then type and press Enter. She answers in one short sentence and the bubble fades; Escape or a click on the page closes it. She searches the page inside the tab — the text you selected if there is a selection, otherwise what you are reading — and sends only matching passages, never the whole page. Alt/Option+Shift+G toggles Show on pages. While hidden, Ask Baleen and already-open section chats still work.
 
@@ -17,7 +17,7 @@ Memory: the Memory row at the bottom of Connection opens its own page with Balee
 
 Limits: Baleen cannot click, scroll, or edit the page for the reader, and normal talk replies are deliberately one short sentence.
 
-Attribution: the character art is derivative fan art by ZipZipPipe (pixiv.net/artworks/148186519), based on 上善's whale-girl OC, licensed CC BY-NC-SA 4.0. The Kimi costume renders are also by ZipZipPipe; Kimi is a Moonshot AI character, used here as non-commercial fan art and not affiliated with or endorsed by Moonshot. It is non-commercial; the credit link is in the popup footer.`;
+Attribution: the character art is derivative fan art by ZipZipPipe (pixiv.net/artworks/148186519), based on 上善's whale-girl OC, licensed CC BY-NC-SA 4.0. The witch drawings and the Kimi costume renders are also by ZipZipPipe; Kimi is a Moonshot AI character, used here as non-commercial fan art and not affiliated with or endorsed by Moonshot. It is all non-commercial; the credit link is in the popup footer.`;
 
 const ASKS_ABOUT_BALEEN = [
   /\bbaleen\b/i,
