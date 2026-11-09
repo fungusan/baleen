@@ -1,7 +1,7 @@
 import { characterCSS, createCharacter } from './render/compositor';
 import { renderMarkdown } from './render/markdown';
 import { captureSection, pagePassage, requestAsk, type SectionCapture } from './ask';
-import { findPassages, viewportPassage } from './retrieve';
+import { findPassages, viewportPassage, wikiPassages } from './retrieve';
 import { notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
 import { asksAboutBaleen } from '../shared/help';
 import { characterById, characterForModel } from '../shared/characters';
@@ -24,6 +24,7 @@ import type {
   Settings,
   Theme,
 } from '../shared/types';
+import type { WikiContext } from '../shared/wiki';
 
 export function clampPosition(
   x: number,
@@ -2486,6 +2487,29 @@ export function createHost(
     settleLook();
     return count;
   }
+  /**
+   * Everything a wiki compile needs from the live page. Conversations are snapshotted here so the
+   * export tab can finish even if the reader closes or navigates this tab.
+   */
+  function wikiContext(): WikiContext {
+    const turns = (messages: ChatMessage[]) =>
+      messages
+        .filter((message) => message.kind !== 'error' && message.text.trim())
+        .slice(-10)
+        .map((message) => ({ role: message.role, text: message.text.slice(0, 1200) }));
+    const study = blocks
+      .filter((block) => block.messages.some((message) => message.role === 'user'))
+      .slice(-4)
+      .map((block) => ({ name: block.name, turns: turns(block.messages) }));
+    return {
+      // The PDF reader tags its tab with “ · PDF”; the compiled source page wants the document name.
+      title: document.title.replace(/\s·\sPDF$/, '') || 'Untitled page',
+      url: location.href,
+      passages: wikiPassages(),
+      talk: turns(talkMessages),
+      study,
+    };
+  }
   function chatHistoryMarkdown(scope: ChatExportScope): string {
     const studyBlocks =
       scope === 'study'
@@ -3140,6 +3164,7 @@ export function createHost(
     apply,
     study: studyPage,
     exportChats: chatHistoryMarkdown,
+    wikiContext,
     clearTalk,
     closeChats: closeAllChats,
     chatCount: () => blocks.length,

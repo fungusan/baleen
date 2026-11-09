@@ -74,7 +74,7 @@ export interface Settings {
 export type SettingsPatch = Partial<
   Pick<Settings, 'theme' | 'scale' | 'hidden' | 'animate' | 'position' | 'model'>
 >;
-export type AskAction = 'chat' | 'talk' | 'summarize' | 'keywords' | 'title';
+export type AskAction = 'chat' | 'talk' | 'summarize' | 'keywords' | 'title' | 'wiki';
 /** Which conversation family an export or action belongs to. */
 export type ChatExportScope = 'talk' | 'study';
 export interface ChatTurn {

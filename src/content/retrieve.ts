@@ -19,6 +19,7 @@ const STOP = new Set(
 
 interface Chunk {
   text: string;
+  code?: boolean;
 }
 
 function normalize(value: string): string {
@@ -84,6 +85,20 @@ function chunksFromPage(): Chunk[] {
       chunks.push({ text: piece });
     }
   };
+  // Code loses its line breaks under `normalize`, and a wiki page is meant to be read by a person,
+  // so a code block travels with its newlines and is fenced by the renderer.
+  const addCode = (value: string) => {
+    const text = value
+      .replace(/\r\n?/g, '\n')
+      .replace(/[ \t]+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    if (text.length < 20) return;
+    const clipped = text.length > MAX_CHUNK * 2 ? `${text.slice(0, MAX_CHUNK * 2)}\n…` : text;
+    if (seen.has(clipped)) return;
+    seen.add(clipped);
+    chunks.push({ text: clipped, code: true });
+  };
   const pages = pdfTexts();
   if (pages.length) {
     for (const page of pages)
@@ -99,6 +114,12 @@ function chunksFromPage(): Chunk[] {
     // Skip a block nested in another block (a paragraph inside a list item, a header inside a
     // section) so the same words are not counted twice.
     if (node.parentElement?.closest(BLOCK_SELECTOR)) continue;
+    if (node.tagName === 'PRE') {
+      addCode(node.innerText || node.textContent || '');
+      scanned += (node.innerText || node.textContent || '').length;
+      if (scanned >= MAX_SCAN) break;
+      continue;
+    }
     const text = normalize(node.innerText || node.textContent || '');
     add(text);
     scanned += text.length;
@@ -192,6 +213,27 @@ export function viewportPassage(): string {
   const list = block.closest<HTMLElement>('ol, ul');
   const scope = list && list.getBoundingClientRect().height <= innerHeight ? list : block;
   return normalize(scope.innerText || scope.textContent || '').slice(0, 2000);
+}
+
+/**
+ * The page as a list of passage-sized pieces, for compiling a wiki. Unlike `findPassages` this keeps
+ * reading order and takes as much of the page as fits, because a compiled page needs the whole
+ * argument rather than the few chunks that match one question.
+ */
+export function wikiPassages(budget = 9000): string[] {
+  const passages: string[] = [];
+  const seen = new Set<string>();
+  let used = 0;
+  for (const chunk of chunksFromPage()) {
+    const text = chunk.code ? `\`\`\`\n${chunk.text.trim()}\n\`\`\`` : normalize(chunk.text);
+    if (text.length < 40 || seen.has(text)) continue;
+    if (used + text.length > budget) break;
+    seen.add(text);
+    passages.push(text);
+    used += text.length;
+    if (passages.length >= 40) break;
+  }
+  return passages;
 }
 
 /** Put the section the reader is pointing at ahead of the retrieved page text, without repeating it. */

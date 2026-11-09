@@ -5,7 +5,7 @@ import { readSettings, sanitizeSettings, writeSettings } from './shared/settings
 import { DEFAULT_MODEL, MODELS, PROVIDER_LABELS, providerForModel } from './shared/types';
 import type { AskAction, AskResult, ChatTurn, Model } from './shared/types';
 
-const ASK_ACTIONS = new Set<string>(['chat', 'talk', 'summarize', 'keywords', 'title']);
+const ASK_ACTIONS = new Set<string>(['chat', 'talk', 'summarize', 'keywords', 'title', 'wiki']);
 const MODEL_IDS = new Set<string>(MODELS);
 const MAX_INPUT = 12000;
 const MAX_PROMPT = 2000;
@@ -86,7 +86,11 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
   const key = await readApiKey(provider);
   if (!key) throw new Error(`Add your ${label} API key in the popup first.`);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUTS[model]);
+  // A wiki compile writes several pages in one reply, so it gets a longer wall than a chat answer.
+  const timer = setTimeout(
+    () => controller.abort(),
+    action === 'wiki' ? 300_000 : TIMEOUTS[model],
+  );
   try {
     return await askModel(
       key,

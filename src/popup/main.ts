@@ -54,7 +54,8 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 </main>
 <main id="view-study" class="view" hidden>
 <div class="view-head"><button id="study-back" class="back" type="button"><span class="chev" aria-hidden="true"></span>Back</button><span class="view-title">Study</span></div>
-<div class="actions"><button id="study-summarize" class="primary" type="button">Summarize</button><button id="study-keywords" class="secondary" type="button">Keywords</button></div>
+<button id="wiki-open" class="study-row" type="button"><span class="booktile" aria-hidden="true"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/><path d="M9 12h6M9 15.5h4"/></g></svg></span><span class="study-text"><strong>Wiki for Obsidian</strong><small>Compile this page into linked notes</small></span><span class="chev" aria-hidden="true"></span></button>
+<div class="tools"><button id="study-summarize" class="chip-button" type="button">Summarize</button><button id="study-keywords" class="chip-button" type="button">Keywords</button></div>
 <p id="study-status" class="hint" role="status">${STUDY_HINT}</p>
 <p class="sec">Chats</p>
 <section class="card list chat-menu" aria-label="Chats">
@@ -318,6 +319,42 @@ async function main() {
   }
   must<HTMLButtonElement>('#study-keywords').onclick = () => void study('keywords');
   must<HTMLButtonElement>('#study-summarize').onclick = () => void study('summarize');
+  must<HTMLButtonElement>('#wiki-open').onclick = () => {
+    void (async () => {
+      const tab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+      const url = tab?.url ?? '';
+      const ownPage = url.startsWith(chrome.runtime.getURL(''));
+      if (!tab?.id || (!/^https?:/i.test(url) && !ownPage)) {
+        studyStatus.textContent = 'Open a regular web page to compile a wiki.';
+        return;
+      }
+      try {
+        const width = 420;
+        const height = 360;
+        const caller = await chrome.windows.getCurrent();
+        const left = Math.round((caller.left ?? 0) + ((caller.width ?? width) - width) / 2);
+        const top = Math.round((caller.top ?? 0) + ((caller.height ?? height) - height) / 2);
+        const created = await chrome.windows.create({
+          url: chrome.runtime.getURL(`wiki.html?tab=${tab.id}`),
+          type: 'popup',
+          width,
+          height,
+          left,
+          top,
+          focused: true,
+        });
+        // macOS ignores the size on create and copies the caller's bounds; only an
+        // update that carries position and size resizes it.
+        if (created?.id) {
+          await chrome.windows.update(created.id, { state: 'normal', width, height, left, top });
+        }
+        window.close();
+      } catch (error) {
+        studyStatus.textContent =
+          error instanceof Error ? error.message : 'Could not open the wiki window.';
+      }
+    })();
+  };
   function downloadMarkdown(text: string, name: string) {
     const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
     const link = document.createElement('a');

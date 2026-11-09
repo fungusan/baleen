@@ -41,6 +41,14 @@ export function bootCompanion() {
       }
       return;
     }
+    if (m?.type === 'fg:wiki-context') {
+      if (!controller) {
+        reply({ ok: false, error: 'This page is still loading. Try again in a moment.' });
+        return;
+      }
+      reply({ ok: true, data: controller.wikiContext() });
+      return;
+    }
     if (m?.type === 'fg:export-chats') {
       const scope = m.scope === 'talk' ? 'talk' : 'study';
       reply({ ok: true, data: { text: controller?.exportChats(scope) ?? '' } });

@@ -1,6 +1,7 @@
 import { createHost } from './host';
 import { isExtension, readSettings, watchSettings } from '../shared/settings';
 import type { ChatExportScope, Settings, SettingsPatch } from '../shared/types';
+import type { WikiContext } from '../shared/wiki';
 
 export async function startCompanion() {
   let mounted: ReturnType<typeof createHost> | undefined;
@@ -45,6 +46,9 @@ export async function startCompanion() {
     },
     exportChats(scope: ChatExportScope) {
       return mounted?.exportChats(scope) ?? '';
+    },
+    wikiContext(): WikiContext | null {
+      return mounted?.wikiContext() ?? null;
     },
     clearTalk() {
       return mounted?.clearTalk() ?? 0;

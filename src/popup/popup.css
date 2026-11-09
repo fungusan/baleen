@@ -476,6 +476,9 @@ h1 {
   text-align: left;
   transition: background 0.12s;
 }
+.study-row .chev {
+  transform: rotate(-45deg);
+}
 .study-row:hover {
   background: var(--sunken-hover);
 }
@@ -551,10 +554,11 @@ h1 {
   align-items: center;
   gap: 6px;
 }
-.view > .actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+/* Study leads with Wiki; the two page tools stay small and neutral beneath it. */
+.tools {
+  display: flex;
   gap: 6px;
+  margin-top: 8px;
 }
 .primary,
 .secondary {

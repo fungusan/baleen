@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wiki · Baleen</title>
+  </head>
+  <body>
+    <header class="top">
+      <img class="portrait" src="icons/128.png" alt="" width="22" height="22" />
+      <div class="identity">
+        <h1>Wiki for Obsidian</h1>
+        <p id="step-caption" class="tagline">Compile this page</p>
+      </div>
+      <span id="model-chip" class="version"></span>
+    </header>
+
+    <ol class="steps" aria-label="Progress">
+      <li class="step-item" data-step="1"><span class="dot">1</span>Compile</li>
+      <li class="step-item" data-step="2"><span class="dot">2</span>Review</li>
+      <li class="step-item" data-step="3"><span class="dot">3</span>Save</li>
+    </ol>
+
+    <main class="view">
+      <p id="page-error" class="banner error" role="alert" hidden></p>
+
+      <section id="step-compile" class="step" aria-label="Compile">
+        <div class="step-scroll">
+          <div class="source">
+            <p id="source-title" class="source-title">Loading…</p>
+            <p id="source-url" class="url"></p>
+            <p id="source-stats" class="stats"></p>
+          </div>
+          <p class="hint">Nothing is sent until you press Compile.</p>
+          <p id="memory-note" class="hint memory-note" hidden></p>
+        </div>
+        <div class="bar">
+          <p id="compile-status" class="status" role="status"></p>
+          <button id="compile" class="primary" type="button" disabled>Compile</button>
+        </div>
+      </section>
+
+      <section id="review" class="step" aria-label="Review" hidden>
+        <div class="step-scroll">
+          <p id="review-topic" class="review-topic"></p>
+          <p id="review-summary" class="hint"></p>
+          <ul id="page-list" class="pages"></ul>
+          <details id="questions" class="questions" hidden>
+            <summary>Open questions<span class="chev" aria-hidden="true"></span></summary>
+            <ul id="question-list"></ul>
+          </details>
+          <p class="hint foot-note">
+            Links to pages outside this wiki are unwrapped to their label. Passages that do not
+            exist are dropped from citations.
+          </p>
+        </div>
+        <div class="bar">
+          <button id="review-back" class="secondary" type="button">Back</button>
+          <button id="review-next" class="primary" type="button">Continue</button>
+        </div>
+      </section>
+
+      <section id="save-step" class="step" aria-label="Save" hidden>
+        <div class="step-scroll">
+          <div id="vault-row" class="vault">
+            <div class="vault-text">
+              <p id="vault-name" class="vault-name">No vault chosen</p>
+              <p id="vault-line" class="hint">Pick your Obsidian vault folder once.</p>
+            </div>
+            <button id="pick" class="secondary" type="button">Choose</button>
+          </div>
+          <p id="save-status" class="status" role="status"></p>
+          <div id="saved" class="saved" hidden>
+            <p class="saved-label">Saved</p>
+            <p id="saved-path" class="saved-path"></p>
+            <p id="saved-counts" class="hint"></p>
+            <p id="saved-note" class="hint saved-note"></p>
+            <div class="bar">
+              <a id="open-vault" class="open-vault" href="#" hidden>Open in Obsidian</a>
+              <button id="done" class="primary" type="button">Done</button>
+            </div>
+          </div>
+        </div>
+        <div id="save-actions" class="bar">
+          <button id="save-back" class="secondary" type="button">Back</button>
+          <button id="save" class="primary" type="button" disabled>Save to vault</button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/wiki/main.ts"></script>
+  </body>
+</html>

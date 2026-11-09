@@ -4,7 +4,8 @@ Manifest V3 Chromium extension (`1.3.0`). She appears on every HTTP(S) page as o
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
 section you highlight, and runs keywords or a whole-page summary through the DeepSeek or Kimi API
 using your own key. Top-level PDFs open in a bundled reader with the same selection chat and Study
-actions. Preferences, her memory of you, and open section chats are saved in the extension.
+actions. Study can also compile the page into a linked wiki in an Obsidian vault. Preferences, her
+memory of you, and open section chats are saved in the extension.
 
 ## Companion
 
@@ -87,10 +88,11 @@ Answers render Markdown (lists, tables, emphasis, inline code, fenced blocks, li
 chain of thought comes back in a collapsible **Thought for Ns** block above the answer. Raw HTML in
 a reply stays literal text.
 
-Open **Study** in the popup for **Keywords** or **Summarize** across the page area in view (or the
-whole document in the PDF reader): the answer opens as a chat pinned at her lower left, fixed to the
-screen with no highlight, and asking the same action again reuses that chat rather than opening
-another. Below them a **Chats** card holds two choices: open **Reading chat** for **Export reading
+Open **Study** in the popup: the **Wiki for Obsidian** row leads, with **Keywords** and
+**Summarize** as two small buttons beneath it for the page area in view (or the whole document in
+the PDF reader). Each answer opens as a chat pinned at her lower left, fixed to the screen with no
+highlight, and asking the same action again reuses that chat rather than opening another. Below
+those, a **Chats** card holds two choices: open **Reading chat** for **Export reading
 chat** and **Clear reading chat**, or **Study chats** for **Export study chats** and **Close study
 chats**. Each export is a Markdown transcript of that family on this page this session — every
 section conversation filed under its auto name, or her reading chat — with its model, provider, and
@@ -98,6 +100,35 @@ message count. Study reads the tab you opened the popup from, including the bund
 with the same Markdown and LaTeX rendering as chat. Requests go from the service worker straight to
 the selected provider — `https://api.deepseek.com` or `https://api.moonshot.ai` — and each key is
 stored in `chrome.storage.local`, never shown again after saving, and never reaches the page.
+
+## Wiki for Obsidian
+
+The **Wiki for Obsidian** row in Study opens a small window connected to the page you were on. It
+shows one step at a time: compile, review, then save. **Compile** sends that page's passages, the
+questions you asked about it, the memory, and the titles, aliases, summaries, and short excerpts of
+pages already compiled for that source to the selected model once, and turns the reply into a small wiki: an immutable source
+page with numbered passages, two to five concept pages whose claims carry passage-level citations, a
+context page explaining why the pages were phrased for you, an index, and a detailed edit-history
+log. Everything that decides what lands on disk is computed locally — link targets are checked
+against the compiled pages, unknown links are unwrapped to their label, and citations to passages
+that do not exist are dropped.
+
+Review the drafted pages, then choose an Obsidian vault folder once. Baleen remembers the handle and
+writes plain Markdown under `Baleen/<page title>/` in that folder, one folder per reading session, so
+two sources never overwrite each other. Recompiling a page continues its revision numbers and reads
+that folder's `index.md`: pages it lists stay part of the wiki, new pages can link to them, and the
+index simply lists them with everything else — their files are not rewritten for this. A draft that
+covers the same idea as a listed page, even under a differently worded title, extends that page
+instead of becoming a duplicate: the existing text and citations stay, the new reading is appended
+as its own cited section, and a later compile of the same article replaces only that section. A file
+you wrote yourself, or marked `review: reviewed`, is never overwritten or removed. Saving never
+deletes anything: a generated page that fell out of the index is adopted back into it, and any other earlier
+file stays in the folder and is reported as left in place, so you can review it in Obsidian. The
+`log.md` records each compile as an edit history: the topic, source revision and hash, pages added or
+updated with their revisions, pages merged into earlier ones, pages kept, files left alone, and files
+left in place. When the chosen folder is a
+vault root, the page offers an `obsidian://` link to open the index. No Obsidian plugin, server, or
+extra key is involved, and the vault is never uploaded.
 
 ## Memory and page search
 
@@ -172,6 +203,9 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/shared/notes.ts` — Baleen's memory of the reader, kept as editable key-value pairs.
 - `src/content/` — companion card, the anchored section chat windows, and the reading chat.
 - `src/content/retrieve.ts` — the local passage ranker that keeps whole pages out of requests.
+- `src/wiki/` — the wiki tab and the vault writer (folder picker, revisions, ownership checks).
+- `src/shared/wiki.ts` — deterministic wiki compiler: prompt, JSON parsing, link and citation
+  validation, Markdown rendering, request building.
 - `src/shared/` — character metadata, settings sanitization, and message types.
 - `public/characters/` — her bundled WebP renders, one per chat model.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
