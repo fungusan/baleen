@@ -7,7 +7,7 @@ export default defineManifest({
   name: 'Baleen',
   version: '2.0.0',
   description:
-    'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek or Kimi API key.',
+    'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek, Kimi, Qwen, GLM, or MiniMax API key.',
   // 123 is the first Chrome with `light-dark()`; the UI tokens depend on it.
   minimum_chrome_version: '123',
   permissions: ['storage', 'scripting', 'webRequest'],
@@ -16,6 +16,9 @@ export default defineManifest({
     'https://*/*',
     'https://api.deepseek.com/*',
     'https://api.moonshot.ai/*',
+    'https://dashscope-intl.aliyuncs.com/*',
+    'https://api.z.ai/*',
+    'https://api.minimax.io/*',
   ],
   icons: {
     16: 'icons/16.png',
@@ -44,6 +47,6 @@ export default defineManifest({
   },
   content_security_policy: {
     extension_pages:
-      "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; connect-src 'self' https://api.deepseek.com https://api.moonshot.ai http://*:* https://*:*",
+      "script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; connect-src 'self' https://api.deepseek.com https://api.moonshot.ai https://dashscope-intl.aliyuncs.com https://api.z.ai https://api.minimax.io http://*:* https://*:*",
   },
 });

@@ -21,7 +21,9 @@ const TIMEOUTS: Record<Model, number> = {
   'deepseek-flash': 150_000,
   'deepseek-v4-pro': 180_000,
   'kimi-k3.1-pro': 180_000,
-  'kimi-k3': 180_000,
+  'qwen3.8-max': 180_000,
+  'glm-5.3': 180_000,
+  'minimax-m3': 180_000,
 };
 const object = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value)

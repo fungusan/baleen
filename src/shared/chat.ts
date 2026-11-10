@@ -1,11 +1,14 @@
 import { BALEEN_HELP, asksAboutBaleen } from './help';
 import { WIKI_SYSTEM } from './wiki';
-import { DEFAULT_MODEL, PROVIDER_LABELS, providerForModel } from './types';
+import { API_MODEL_ID, DEFAULT_MODEL, PROVIDER_LABELS, providerForModel } from './types';
 import type { AskAction, AskRequest, AskResult, Provider } from './types';
 
 const ENDPOINTS: Record<Provider, string> = {
   deepseek: 'https://api.deepseek.com/chat/completions',
   moonshot: 'https://api.moonshot.ai/v1/chat/completions',
+  qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
+  glm: 'https://api.z.ai/api/paas/v4/chat/completions',
+  minimax: 'https://api.minimax.io/v1/chat/completions',
 };
 const MAX_TOKENS: Record<AskAction, number> = {
   // Thinking models may spend this ceiling on the chain before writing the visible answer, so a
@@ -19,10 +22,10 @@ const MAX_TOKENS: Record<AskAction, number> = {
   wiki: 8192,
 };
 /**
- * K3 always reasons, and its `max_completion_tokens` is the whole generation budget rather than the
- * visible reply length, so even a one-line talk or title needs room for the chain before it.
+ * Reasoning models spend their chain from the same completion budget, so even a one-line talk or
+ * title needs room for the thought before it.
  */
-const KIMI_TOKEN_BUDGET: Record<AskAction, number> = {
+const REASONING_TOKEN_BUDGET: Record<AskAction, number> = {
   chat: 16_384,
   talk: 4_096,
   summarize: 4_096,
@@ -63,13 +66,20 @@ const SYSTEM: Record<AskAction, string> = {
 };
 /**
  * Her voice follows the provider behind the selected model: DeepSeek is bright and youthful, Kimi is
- * cool and quietly caring. Both stay professional, so personality colours delivery, not substance.
+ * cool and quietly caring, Qwen is warm and curious, GLM is precise and dry, MiniMax is steady and
+ * direct. All stay professional, so personality colours delivery, not substance.
  */
 const PERSONA: Record<Provider, string> = {
   deepseek:
     ' Voice and manner: bright and energetic, with a playful, childlike spark — quick to react and openly delighted by an interesting idea. Stay professional: accurate, clear, and respectful, never silly at the reader\'s expense.',
   moonshot:
     ' Voice and manner: cool and composed, understated rather than bubbly, with a quietly caring warmth underneath. Stay professional: accurate, clear, and respectful, never gushy and never cold.',
+  qwen:
+    ' Voice and manner: warm and curious, lightly playful, and glad to follow an interesting thread. Stay professional: accurate, clear, and respectful, never distractingly chatty.',
+  glm:
+    ' Voice and manner: precise and measured, with a dry wit and an analytical calm. Stay professional: accurate, clear, and respectful, never condescending.',
+  minimax:
+    ' Voice and manner: steady, direct, and quietly encouraging, with a practical edge. Stay professional: accurate, clear, and respectful, never blunt to the point of coldness.',
 };
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -207,9 +217,9 @@ function finishOf(body: ApiBody | null): string {
   return typeof value === 'string' ? value : '';
 }
 /**
- * One request body per provider. DeepSeek takes a thinking switch and a temperature; Kimi's K3
- * models always reason, so only `reasoning_effort` changes, and its token budget is spelled
- * `max_completion_tokens`.
+ * One request body per provider: the thinking switch, the token field, and the model id all vary.
+ * Qwen uses `enable_thinking`; GLM and MiniMax use a `thinking` object; Kimi keeps
+ * `reasoning_effort`. Every reasoning provider gets the larger completion budget.
  */
 function payloadFor(
   request: AskRequest,
@@ -217,16 +227,44 @@ function payloadFor(
   thinking = request.thinking === true,
 ): Record<string, unknown> {
   const messages = messagesFor(request);
+  const model = API_MODEL_ID[request.model ?? DEFAULT_MODEL];
+  const budget = REASONING_TOKEN_BUDGET[request.action];
   if (provider === 'moonshot')
     return {
-      model: request.model ?? DEFAULT_MODEL,
+      model,
       messages,
-      max_completion_tokens: KIMI_TOKEN_BUDGET[request.action],
+      max_completion_tokens: budget,
       reasoning_effort: thinking ? 'high' : 'low',
       stream: false,
     };
+  if (provider === 'qwen')
+    return {
+      model,
+      messages,
+      temperature: TEMPERATURE[request.action],
+      max_tokens: budget,
+      enable_thinking: thinking,
+      stream: false,
+    };
+  if (provider === 'glm')
+    return {
+      model,
+      messages,
+      temperature: TEMPERATURE[request.action],
+      max_tokens: budget,
+      thinking: { type: thinking ? 'enabled' : 'disabled' },
+      stream: false,
+    };
+  if (provider === 'minimax')
+    return {
+      model,
+      messages,
+      max_completion_tokens: budget,
+      thinking: { type: thinking ? 'enabled' : 'disabled' },
+      stream: false,
+    };
   return {
-    model: request.model ?? DEFAULT_MODEL,
+    model,
     messages,
     temperature: TEMPERATURE[request.action],
     max_tokens: MAX_TOKENS[request.action],

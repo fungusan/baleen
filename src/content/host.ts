@@ -10,6 +10,7 @@ import {
   MODEL_LABELS,
   MODEL_META,
   MODEL_SHORT,
+  PICKER_MODELS,
   PROVIDER_LABELS,
   providerForModel,
 } from '../shared/types';
@@ -937,7 +938,7 @@ export function createHost(
     menu.setAttribute('role', 'listbox');
     menu.setAttribute('aria-label', 'Chat model');
     const options: HTMLButtonElement[] = [];
-    for (const id of MODELS) {
+    for (const id of PICKER_MODELS) {
       const option = make('button', 'model-option');
       option.type = 'button';
       option.setAttribute('role', 'option');

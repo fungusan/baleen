@@ -10,6 +10,7 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 // quietly dropping the reader back to the default model.
 const LEGACY_MODELS: Record<string, Model> = {
   'kimi-k3.1-pro-highspeed': 'kimi-k3.1-pro',
+  'kimi-k3': 'kimi-k3.1-pro',
   'deepseek-v4-flash': 'deepseek-flash',
 };
 const model = (v: unknown): Model => {
@@ -18,13 +19,22 @@ const model = (v: unknown): Model => {
   return (MODELS as readonly string[]).includes(id) ? (id as Model) : DEFAULT_MODEL;
 };
 /** Keeps only drawings the model actually offers, so a renamed or removed one falls back. */
-const outfits = (v: unknown): Partial<Record<Model, CharacterId>> => {
+const outfits = (v: unknown, current: unknown): Partial<Record<Model, CharacterId>> => {
   const raw = record(v);
   const kept: Partial<Record<Model, CharacterId>> = {};
   for (const id of MODELS) {
     const chosen = raw[id];
     if (typeof chosen === 'string' && (costumesFor(id) as readonly string[]).includes(chosen))
       kept[id] = chosen as CharacterId;
+  }
+  // K3's moonlit drawing moved with its retired id, so a reader last on K3 keeps that costume.
+  if (current === 'kimi-k3') {
+    const chosen = raw[current];
+    kept['kimi-k3.1-pro'] =
+      typeof chosen === 'string' &&
+      (costumesFor('kimi-k3.1-pro') as readonly string[]).includes(chosen)
+        ? (chosen as CharacterId)
+        : 'baleen-kimi';
   }
   return kept;
 };
@@ -44,7 +54,7 @@ export function sanitizeSettings(raw: unknown): Settings {
         ? { x: Math.max(0, Math.min(1, p.x)), y: Math.max(0, Math.min(1, p.y)) }
         : null,
     model: model(v.model),
-    outfits: outfits(v.outfits),
+    outfits: outfits(v.outfits, v.model),
   };
 }
 // Deliberately unchanged across the rename: the key is what keeps an existing install's

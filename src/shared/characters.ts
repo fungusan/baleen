@@ -12,8 +12,9 @@ export interface Character {
   aspect: number;
 }
 // A model offers one or more drawings and the reader picks among them. Both DeepSeek models pair
-// their maid with a witch: the broom for Flash and the moon-staff gown for V4 Pro. Kimi keeps one
-// costume per model: the pumpkin cat for K3.1 Pro and the moonlit flute dress for K3.
+// their maid with a witch: the broom for Flash and the moon-staff gown for V4 Pro. Kimi K3.1 Pro
+// pairs the pumpkin cat with the moonlit flute dress; GLM-5.3 pairs the gothic Cat with the
+// Ghost poncho; Qwen and MiniMax each have one drawing.
 export const CHARACTERS: readonly Character[] = [
   {
     id: 'baleen',
@@ -57,12 +58,42 @@ export const CHARACTERS: readonly Character[] = [
     accent: '#b8601f',
     aspect: 0.5375,
   },
+  {
+    id: 'baleen-qwen',
+    name: 'Baleen',
+    label: 'Fan',
+    accent: '#5667c9',
+    aspect: 0.5192,
+  },
+  {
+    id: 'baleen-glm',
+    name: 'Baleen',
+    label: 'Cat',
+    accent: '#35507d',
+    aspect: 0.5404,
+  },
+  {
+    id: 'baleen-glm-ghost',
+    name: 'Baleen',
+    label: 'Ghost',
+    accent: '#c9782f',
+    aspect: 0.5596,
+  },
+  {
+    id: 'baleen-minimax',
+    name: 'Baleen',
+    label: 'Reporter',
+    accent: '#d97a63',
+    aspect: 0.5365,
+  },
 ];
 const COSTUMES: Record<Model, readonly CharacterId[]> = {
   'deepseek-v4-pro': ['baleen', 'baleen-pro-witch'],
   'deepseek-flash': ['baleen-flash', 'baleen-flash-witch'],
-  'kimi-k3.1-pro': ['baleen-kimi-halloween'],
-  'kimi-k3': ['baleen-kimi'],
+  'kimi-k3.1-pro': ['baleen-kimi-halloween', 'baleen-kimi'],
+  'qwen3.8-max': ['baleen-qwen'],
+  'glm-5.3': ['baleen-glm', 'baleen-glm-ghost'],
+  'minimax-m3': ['baleen-minimax'],
 };
 export const costumesFor = (model: Model): readonly CharacterId[] => COSTUMES[model];
 /** The chosen drawing for a model, falling back to its first when nothing valid was stored. */
@@ -79,7 +110,7 @@ export const characterById = (id: CharacterId): Character =>
  * Art lives at a stable path, so Chrome happily serves a cached copy after a rebuild. Tagging the
  * URL with the extension version and art revision makes every release fetch the current render.
  */
-const ART_REVISION = '38';
+const ART_REVISION = '41';
 const assetVersion = () => {
   try {
     const version =

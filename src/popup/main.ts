@@ -1,9 +1,9 @@
 import './popup.css';
-import { clearApiKey, normalizeApiKey, readApiKey, writeApiKey } from '../shared/key';
+import { clearApiKey, keyPlaceholder, keyPreview, normalizeApiKey, readApiKey, writeApiKey } from '../shared/key';
 import { readSettings, watchSettings } from '../shared/settings';
 import { deleteNote, readNotes, saveNote, watchNotes, type NoteEntry } from '../shared/notes';
 import { characterById, costumeFor, costumesFor } from '../shared/characters';
-import { MODEL_META, MODEL_SHORT, MODELS, PROVIDER_HOSTS, PROVIDER_LABELS, providerForModel } from '../shared/types';
+import { MODEL_META, MODEL_SHORT, PICKER_MODELS, PROVIDER_HOSTS, PROVIDER_LABELS, providerForModel } from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
 import type {
   CharacterId,
@@ -24,7 +24,7 @@ const version =
 const HIDDEN_HINT = 'Hidden on every page. Inline chat still works.';
 const VISIBLE_HINT = 'Shown on every page. Drag her to move.';
 const STUDY_HINT = 'Opens in a chat beside her, with no highlight.';
-const modelOptionsHTML = MODELS.map(
+const modelOptionsHTML = PICKER_MODELS.map(
   (id) =>
     `<button type="button" role="option" class="drop-option" data-model="${id}" aria-selected="false"><span class="drop-name"><span class="model-glyph" aria-hidden="true">${modelIcon(id)}</span><span>${MODEL_SHORT[id]}</span></span><span class="drop-meta">${MODEL_META[id]}</span></button>`,
 ).join('');
@@ -33,9 +33,9 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <p class="sec" id="appearance-label">Appearance</p>
 <section class="card" aria-labelledby="appearance-label">
 <div class="row"><span class="label" id="theme-label">Theme</span><div class="seg" id="theme" role="radiogroup" aria-labelledby="theme-label"><label><input type="radio" name="theme" value="system"><span>System</span></label><label><input type="radio" name="theme" value="light"><span>Light</span></label><label><input type="radio" name="theme" value="dark"><span>Dark</span></label></div></div>
-<div class="row"><span class="label" id="visible-label">Show on pages</span><button id="visible" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="visible-label" title="${VISIBLE_HINT}"></button></div>
+<div class="row"><div class="row-pair"><span class="label" id="visible-label">Show on pages</span><button id="visible" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="visible-label" title="${VISIBLE_HINT}"></button></div><div class="row-pair"><span class="label" id="animate-label">Animate</span><button id="animate" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="animate-label"></button></div></div>
 <div class="slider"><label class="label" for="scale">Size</label><output id="size-label" class="value" for="scale">100%</output><input id="scale" type="range" min="0.6" max="1.6" step="0.1" value="1"></div>
-<div class="row"><span class="label" id="animate-label">Animate</span><div class="row-tools"><button id="animate" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="animate-label"></button><div class="seg" id="outfit" role="radiogroup" aria-label="Outfit" hidden></div></div></div>
+<div class="row" id="outfit-row" hidden><span class="label" id="outfit-label">Outfit</span><div class="seg" id="outfit" role="radiogroup" aria-labelledby="outfit-label"></div></div>
 </section>
 <p class="sec" id="connection-label">Connection</p>
 <section class="card" aria-labelledby="connection-label">
@@ -66,7 +66,7 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 </section>
 </main>
 <p id="status" role="status"></p>
-<footer><span>Alt/Option + Shift + G toggles</span><span class="links"><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="https://www.pixiv.net/en/artworks/148186519" target="_blank" rel="noreferrer" title="Character art by ZipZipPipe, based on 上善's whale-girl OC (CC BY-NC-SA 4.0)">Art: ZipZipPipe</a></span></footer>`;
+<footer><span>Alt/Option + Shift + G toggles</span><span class="links"><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="https://www.pixiv.net/en/artworks/148186519" target="_blank" rel="noreferrer" title="DeepSeek and Kimi character art by ZipZipPipe, based on 上善's whale-girl OC (CC BY-NC-SA 4.0)">DeepSeek &amp; Kimi art: ZipZipPipe</a></span></footer>`;
 
 async function main() {
   let settings = await readSettings();
@@ -245,11 +245,12 @@ async function main() {
     void loadKey();
   }
   const outfitGroup = must<HTMLElement>('#outfit');
+  const outfitRow = must<HTMLElement>('#outfit-row');
   let outfitModel: Model | null = null;
-  /** The outfit choices sit on the Animate row and only exist for a model with several drawings. */
+  /** The outfit row only exists for a model with several drawings. */
   function paintOutfits(value: Settings) {
     const ids = costumesFor(value.model);
-    outfitGroup.hidden = ids.length < 2;
+    outfitRow.hidden = ids.length < 2;
     if (outfitModel !== value.model) {
       outfitModel = value.model;
       outfitGroup.innerHTML = ids
@@ -679,9 +680,10 @@ async function main() {
     keyFieldLabel.textContent = label;
     keyEdit.textContent = apiKey ? 'Replace' : 'Add';
     keyRemove.hidden = !apiKey;
+    keyInput.placeholder = keyPlaceholder(forProvider);
     const host = PROVIDER_HOSTS[forProvider];
     keyHint.textContent = apiKey
-      ? `Saved sk-…${apiKey.slice(-4)}. Sent only to ${host} when you ask.`
+      ? `Saved ${keyPreview(forProvider, apiKey)}. Sent only to ${host} when you ask.`
       : `Stored on this device. Sent only to ${host} when you ask.`;
   }
   keyEdit.onclick = () => showKeyForm(keyForm.hidden);
@@ -698,12 +700,12 @@ async function main() {
   };
   keyForm.onsubmit = (event) => {
     event.preventDefault();
-    const key = normalizeApiKey(keyInput.value);
+    const forProvider = provider();
+    const key = normalizeApiKey(keyInput.value, forProvider);
     if (!key) {
-      status('That does not look like an API key (sk-…).', 'error');
+      status(`That does not look like a ${PROVIDER_LABELS[forProvider]} API key.`, 'error');
       return;
     }
-    const forProvider = provider();
     void writeApiKey(forProvider, key)
       .then(loadKey)
       .then(() => {

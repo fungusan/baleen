@@ -6,6 +6,10 @@ export const CHARACTER_IDS = [
   'baleen-pro-witch',
   'baleen-kimi',
   'baleen-kimi-halloween',
+  'baleen-qwen',
+  'baleen-glm',
+  'baleen-glm-ghost',
+  'baleen-minimax',
 ] as const;
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 // Decorative motions she can play; every one uses the same idle drawing.
@@ -18,44 +22,86 @@ export interface Position {
 // System follows the device; the other two pin a scheme regardless of it.
 export const THEMES = ['system', 'light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
-export const PROVIDERS = ['deepseek', 'moonshot'] as const;
+export const PROVIDERS = ['deepseek', 'moonshot', 'qwen', 'glm', 'minimax'] as const;
 export type Provider = (typeof PROVIDERS)[number];
 export const PROVIDER_LABELS: Record<Provider, string> = {
   deepseek: 'DeepSeek',
   moonshot: 'Kimi',
+  qwen: 'Qwen',
+  glm: 'GLM',
+  minimax: 'MiniMax',
 };
 /** Where a provider's requests go; the only hosts the key is ever sent to. */
 export const PROVIDER_HOSTS: Record<Provider, string> = {
   deepseek: 'api.deepseek.com',
   moonshot: 'api.moonshot.ai',
+  qwen: 'dashscope-intl.aliyuncs.com',
+  glm: 'api.z.ai',
+  minimax: 'api.minimax.io',
 };
 // The chat models exposed in the UI, keyed by the provider that serves them.
-export const MODELS = ['deepseek-v4-pro', 'deepseek-flash', 'kimi-k3.1-pro', 'kimi-k3'] as const;
+export const MODELS = [
+  'deepseek-v4-pro',
+  'deepseek-flash',
+  'kimi-k3.1-pro',
+  'qwen3.8-max',
+  'glm-5.3',
+  'minimax-m3',
+] as const;
 export type Model = (typeof MODELS)[number];
+/**
+ * The models with their own drawing, in menu order. Every wired model is here; a model whose art
+ * has not shipped yet must be left out so both pickers stay honest.
+ */
+export const PICKER_MODELS: readonly Model[] = [
+  'deepseek-v4-pro',
+  'deepseek-flash',
+  'kimi-k3.1-pro',
+  'qwen3.8-max',
+  'glm-5.3',
+  'minimax-m3',
+];
 export const MODEL_PROVIDER: Record<Model, Provider> = {
   'deepseek-flash': 'deepseek',
   'deepseek-v4-pro': 'deepseek',
   'kimi-k3.1-pro': 'moonshot',
-  'kimi-k3': 'moonshot',
+  'qwen3.8-max': 'qwen',
+  'glm-5.3': 'glm',
+  'minimax-m3': 'minimax',
 };
 export const MODEL_LABELS: Record<Model, string> = {
   'deepseek-flash': 'DeepSeek Flash',
   'deepseek-v4-pro': 'DeepSeek V4 Pro',
   'kimi-k3.1-pro': 'Kimi K3.1 Pro',
-  'kimi-k3': 'Kimi K3',
+  'qwen3.8-max': 'Qwen3.8 Max',
+  'glm-5.3': 'GLM-5.3',
+  'minimax-m3': 'MiniMax M3',
 };
 export const MODEL_SHORT: Record<Model, string> = {
   'deepseek-flash': 'DeepSeek Flash',
   'deepseek-v4-pro': 'DeepSeek V4 Pro',
   'kimi-k3.1-pro': 'Kimi K3.1 Pro',
-  'kimi-k3': 'Kimi K3',
+  'qwen3.8-max': 'Qwen3.8 Max',
+  'glm-5.3': 'GLM-5.3',
+  'minimax-m3': 'MiniMax M3',
 };
 /** The tier hint shown beside a model in both pickers. */
 export const MODEL_META: Record<Model, string> = {
   'deepseek-flash': 'Fast',
   'deepseek-v4-pro': 'Stronger',
   'kimi-k3.1-pro': 'Flagship',
-  'kimi-k3': 'Previous',
+  'qwen3.8-max': 'Flagship',
+  'glm-5.3': 'Flagship',
+  'minimax-m3': 'Flagship',
+};
+/** Wire ids differ from the stored keys only where a provider is case-sensitive. */
+export const API_MODEL_ID: Record<Model, string> = {
+  'deepseek-flash': 'deepseek-flash',
+  'deepseek-v4-pro': 'deepseek-v4-pro',
+  'kimi-k3.1-pro': 'kimi-k3.1-pro',
+  'qwen3.8-max': 'qwen3.8-max',
+  'glm-5.3': 'glm-5.3',
+  'minimax-m3': 'MiniMax-M3',
 };
 export const DEFAULT_MODEL: Model = 'deepseek-flash';
 export const providerForModel = (model: Model): Provider => MODEL_PROVIDER[model];

@@ -1,26 +1,27 @@
 # Baleen
 
-Manifest V3 Chromium extension (`2.0.0`). She appears on every HTTP(S) page as one of six idle
+Manifest V3 Chromium extension (`2.0.0`). She appears on every HTTP(S) page as one of ten idle
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
-section you highlight, and runs keywords or a whole-page summary through the DeepSeek or Kimi API
-using your own key. Top-level PDFs open in a bundled reader with the same selection chat and Study
-actions. Study can also compile the page into a linked wiki in an Obsidian vault. Preferences, her
-memory of you, and open section chats are saved in the extension.
+section you highlight, and runs keywords or a whole-page summary through your own DeepSeek, Kimi,
+Qwen, GLM, or MiniMax API key. Top-level PDFs open in a bundled reader with the same selection chat
+and Study actions. Study can also compile the page into a linked wiki in an Obsidian vault.
+Preferences, her memory of you, and open section chats are saved in the extension.
 
 ## Companion
 
-Baleen has six drawings. Each DeepSeek model pairs a **Maid** with a **Witch** — the original maid
-and the moon-staff gown for **V4 Pro**, the notebook maid and the broom for **Flash** — and the
-Kimi models keep their costumes: the pumpkin cat for **Kimi K3.1 Pro** and the moonlit flute dress
-for **Kimi K3**. Every pair is switchable under **Appearance › Outfit**.
-Neither adds buttons to the page. The toolbar popup keeps the original
-compact panel: **Appearance** (theme, show on pages, size, animate, outfit) and **Connection** (API key,
-model, and memory). Each provider keeps its own key, so switching between DeepSeek and Kimi swaps
-the key row. **Study** opens a second level in the same popup for keywords, summarize, and one chats
-card with two choices — **Reading chat** and **Study chats** — each revealing its export and clear or
-close actions. Connection also carries **Memory**, Baleen's memory of you, whose count sits on the
-row and whose own page shows five entries at a time. **Back** returns to the settings. Every surface writes the same
-settings, so a choice applies to every tab at once and survives a reload. Each model has one idle
+Baleen has ten drawings across six models. **V4 Pro** offers the original **Maid** and the
+moon-staff **Witch**, **Flash** the notebook **Maid** and the broom **Witch**, **Kimi K3.1 Pro**
+the **Pumpkin** cat and the **Moonlit** flute dress, and **GLM-5.3** the gothic **Cat** and the
+**Ghost** poncho. **Qwen3.8 Max** and **MiniMax M3** each have one drawing: the blue **Fan** gown
+and the **Reporter**. Every model with two drawings is switchable under **Appearance › Outfit**. No outfit adds buttons to the page. The toolbar popup keeps the original
+compact panel: **Appearance** (theme, show on pages and animate, size, outfit) and **Connection**
+(API key, model, and memory). Each provider keeps its own key, so switching between DeepSeek, Kimi,
+Qwen, GLM, and MiniMax swaps the key row. **Study** opens a second level in the same popup for keywords, summarize,
+and one chats card with two choices — **Reading chat** and **Study chats** — each revealing its
+export and clear or close actions. Connection also carries **Memory**, Baleen's memory of you,
+whose count sits on the row and whose own page shows five entries at a time. **Back** returns to
+the settings. Every surface writes the same
+settings, so a choice applies to every tab at once and survives a reload. Each drawing has one idle
 render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
 that drawing — no per-state art — and they are driven only by what you do in the popup or her own
 chats; page text is never read until you send her a message. **Animate** off freezes those keyframes
@@ -53,7 +54,7 @@ even on a page with no readable text.
 
 ## Section chat and Study
 
-Save a DeepSeek or Kimi API key in the popup. Highlight a section and an **Ask Baleen** button appears
+Save an API key for one of the five providers in the popup. Highlight a section and an **Ask Baleen** button appears
 at the end of the selection; click it and a compact chat window opens beside the section, anchored to its last selected line. The window floats over the article instead of joining
 its layout, so a long section never stretches or reflows the page; it stays next to its section as
 you scroll. It opens below the selection, steps above it when the viewport is short of room, and can
@@ -84,7 +85,7 @@ Send: the selected text, the question, and any image captions or alt text in tha
 Baleen. The request behind her goes to the selected provider and carries text only, so image pixels
 are never sent, and the window says so when a selection includes images. Follow-up questions keep the
 same section context, and the model chosen in the popup (or in a section window) picks one of
-`deepseek-flash`, `deepseek-v4-pro`, `kimi-k3.1-pro`, and `kimi-k3`.
+`deepseek-flash`, `deepseek-v4-pro`, `kimi-k3.1-pro`, `qwen3.8-max`, `glm-5.3`, and `MiniMax-M3`.
 Answers render Markdown (lists, tables, emphasis, inline code, fenced blocks, links) and LaTeX:
 `$...$` inline and `$$...$$` on its own line. Chat answers are requested in thinking mode, and the
 chain of thought comes back in a collapsible **Thought for Ns** block above the answer. Raw HTML in
@@ -100,7 +101,8 @@ chats**. Each export is a Markdown transcript of that family on this page this s
 section conversation filed under its auto name, or her reading chat — with its model, provider, and
 message count. Study reads the tab you opened the popup from, including the bundled PDF reader, and answers
 with the same Markdown and LaTeX rendering as chat. Requests go from the service worker straight to
-the selected provider — `https://api.deepseek.com` or `https://api.moonshot.ai` — and each key is
+the selected provider — `https://api.deepseek.com`, `https://api.moonshot.ai`,
+`https://dashscope-intl.aliyuncs.com`, `https://api.z.ai`, or `https://api.minimax.io` — and each key is
 stored in `chrome.storage.local`, never shown again after saving, and never reaches the page.
 
 ## Wiki for Obsidian
@@ -154,8 +156,9 @@ a short paragraph), edit it, or delete it; keys are matched case-insensitively, 
 key updates it. Memory travels with section and reading chats as reference, newest first, up to
 about 3,000 characters. A section chat reads and writes the same list but still sends only its
 selected section, while her reading chat answers in one short sentence. Each API key sits in the
-same local storage and is sent only to its provider — `https://api.deepseek.com` or
-`https://api.moonshot.ai` — when you ask.
+same local storage and is sent only to its provider — `https://api.deepseek.com`,
+`https://api.moonshot.ai`, `https://dashscope-intl.aliyuncs.com`, `https://api.z.ai`, or
+`https://api.minimax.io` — when you ask.
 
 ## PDF reader
 
@@ -192,13 +195,14 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 ## Source
 
 - `src/manifest.ts` — MV3 manifest; content script, storage, scripting, webRequest, site access,
-  DeepSeek and Kimi host permissions, CSP.
+  the five provider hosts, CSP.
 - `src/viewer/` — bundled pdf.js reader: lazy page rendering, selectable text layer, whole-document
   text extraction for Study, download and open-original escape hatches.
 - `src/popup/` — the compact Appearance and Connection panel, Study, and the Memory page.
 - `src/background.ts` — serialized preference writes, the show/hide shortcut, tab re-injection, and
   the model requests.
-- `src/shared/chat.ts` — provider client (DeepSeek and Kimi), request bodies, and prompts.
+- `src/shared/chat.ts` — provider client (DeepSeek, Kimi, Qwen, GLM, and MiniMax), request bodies,
+  and prompts.
 - `src/shared/key.ts` — per-provider key validation and local storage.
 - `src/shared/help.ts` — the trusted built-in reference about Baleen, attached only to messages that
   ask about the extension.
@@ -209,7 +213,7 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/shared/wiki.ts` — deterministic wiki compiler: prompt, JSON parsing, link and citation
   validation, Markdown rendering, request building.
 - `src/shared/` — character metadata, settings sanitization, and message types.
-- `public/characters/` — her bundled WebP renders, one per chat model.
+- `public/characters/` — her bundled WebP renders, one per drawing.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
 - `public/icons/` — toolbar icons, rasterized from `baleen.svg`.
 - `art-src/baleen/` — the supplied cut-outs behind the shipped renders.
@@ -225,6 +229,11 @@ The character renders are derivative fan art, not original work for this project
   with or endorsement by Moonshot.
 - Flash costume: the broom witch is also a ZipZipPipe render.
 - Pro costume: the moon-staff witch gown is a ZipZipPipe render.
+- Qwen, GLM, and MiniMax costumes: the Fan gown, the gothic Cat, the Ghost poncho, and the Reporter
+  drawings were supplied for this build. Qwen is Alibaba's, GLM is Zhipu's (Z.AI), and MiniMax is
+  MiniMax's; all are used as non-commercial fan art and imply no affiliation with or endorsement by
+  those companies. **The illustrator is not recorded in the supplied files — confirm the credit
+  before distributing this build.**
 - Kept source, not bundled: the wisteria-swing drawing by 阮米糕 (Pixiv and X under that name;
   credit the source when reposting, no commercial use) stays under `art-src/baleen/raw/` as a
   supplied master for a future look, but no build ships it.
@@ -234,8 +243,11 @@ The character renders are derivative fan art, not original work for this project
   it is non-commercial, and any redistribution of the art stays under the same share-alike license.
 
 Processing: the supplied drawings are matted off their backgrounds — the maid cut-out's flat-white
-band and hair-loop pockets, and the Flash, moonlit and pumpkin drawings' off-white pages, are removed
-while the shaded white of the aprons, notebook, ruffles and socks is kept. The broom witch arrived
-already transparent, bats included. Every render is then trimmed and normalised to one solid-alpha
-height. The toolbar icon is a separate whale-tail mark, not derived from the character art. The art
-process is in `art-src/baleen/WORKFLOW.md`. See `LICENSE`.
+band and hair-loop pockets, and the Flash, moonlit, pumpkin, Fan, and Reporter drawings'
+off-white pages, are removed while the shaded white of the aprons, notebook, ruffles, gowns, coat,
+and socks is kept. The GLM Cat's page was matted with Leonardo's background remover (the remove.bg
+engine) because its ground shadow survived the local key. The broom witch and the Ghost poncho
+arrived already transparent, so both were trimmed and resized directly. Every render is then
+trimmed and normalised to one solid-alpha height.
+The toolbar icon is a separate whale-tail mark, not derived from the character art. The art process
+is in `art-src/baleen/WORKFLOW.md`. See `LICENSE`.

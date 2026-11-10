@@ -129,8 +129,12 @@ offers the rest under **Appearance › Outfit**:
 | `baleen-pro-witch` | DeepSeek V4 Pro (Witch) | `raw/pro-witch-master.png` (supplied transparent moon-staff gown) | 577x1040, aspect 0.5548 |
 | `baleen-flash` | DeepSeek Flash (Maid) | `raw/flash-master.png` (notebook drawing) | 543x1040, aspect 0.522 |
 | `baleen-flash-witch` | DeepSeek Flash (Witch) | `raw/flash-witch-master.png` (supplied transparent broom render) | 576x1040, aspect 0.5538 |
-| `baleen-kimi` | Kimi K3 (Moonlit) | `raw/kimi-moonlit-nobg.png` (Leonardo `remove-bg` of `kimi-moonlit-master.png`) | 556x1040, aspect 0.5346 |
+| `baleen-kimi` | Kimi K3.1 Pro (Moonlit) | `raw/kimi-moonlit-nobg.png` (Leonardo `remove-bg` of `kimi-moonlit-master.png`) | 556x1040, aspect 0.5346 |
 | `baleen-kimi-halloween` | Kimi K3.1 Pro (Pumpkin) | `raw/kimi-halloween-nobg.png` (Leonardo `remove-bg` of the flattened cat master) | 559x1040, aspect 0.5375 |
+| `baleen-qwen` | Qwen3.8 Max (Fan) | `raw/qwen-master.png` (supplied white-page drawing) | 540x1040, aspect 0.5192 |
+| `baleen-glm` | GLM-5.3 (Cat) | `raw/glm-nobg.png` (Leonardo `remove-bg` of `glm-master.png`) | 562x1040, aspect 0.5404 |
+| `baleen-glm-ghost` | GLM-5.3 (Ghost) | `raw/glm-ghost-master.png` (supplied transparent cut-out) | 582x1040, aspect 0.5596 |
+| `baleen-minimax` | MiniMax M3 (Reporter) | `raw/minimax-master.png` (supplied white-page drawing) | 558x1040, aspect 0.5365 |
 
 ```sh
 # Leonardo's remover (remove.bg's engine): sync, one fixed price, ephemeral result.
@@ -145,7 +149,9 @@ afterwards. A transparent master must be flattened onto white first (Pillow: pas
 white using its alpha) or the remover sees transparent black. The output keeps the master's
 resolution and has a clean, decontaminated matte: on the moonlit dress it removed the pale
 white-page rim that the local keyer left along dark silhouettes (edge offset +61 → −4 levels),
-and on the cat it tightened a very soft supplied alpha (partial pixels 21.8k → 7.7k).
+and on the cat it tightened a very soft supplied alpha (partial pixels 21.8k → 7.7k). The GLM cat's
+white page also carried a dithered ground shadow that the local white keyer kept as an opaque oval;
+`remove-bg` dropped it (2026-11-10, $0.1047).
 
 Export the cut-out by trimming at alpha > 2 and resizing premultiplied (`convert("RGBa")`) to
 height 1040; do not run it through `key_art.py --bg alpha`, whose flat-white band pass targets
@@ -220,6 +226,9 @@ The character is derivative fan art:
 - The moonlit flute and pumpkin cat Kimi costumes and both witch drawings are also ZipZipPipe
   renders. Kimi is a Moonshot AI character: non-commercial fan art only, with no affiliation or
   endorsement implied.
+- The Fan (Qwen), Cat and Ghost (GLM), and Reporter (MiniMax) drawings were supplied for this build
+  with no illustrator recorded. Treat them as non-commercial fan art of those providers' brands, and
+  settle the credit before distributing.
 - The unused wisteria-swing source (`raw/swing-master.png`) is by **阮米糕**, who publishes on Pixiv
   and X under that name. The artist's terms: credit the source when reposting, no commercial use
   (转载请标明出处，禁止商用). It is kept as source only and no build ships it.

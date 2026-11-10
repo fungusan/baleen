@@ -151,8 +151,8 @@ h1 {
   line-height: 1.3;
   color: var(--ink);
 }
-/* Controls that share a row, e.g. the animate switch and the outfit choices. */
-.row-tools {
+/* Controls that share a row, e.g. Show on pages and Animate, each with its own label. */
+.row-pair {
   display: flex;
   flex: none;
   align-items: center;

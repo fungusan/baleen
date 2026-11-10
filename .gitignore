@@ -26,6 +26,12 @@ art-src/baleen/raw/*
 !art-src/baleen/raw/kimi-halloween-nobg.json
 !art-src/baleen/raw/flash-witch-master.png
 !art-src/baleen/raw/pro-witch-master.png
+!art-src/baleen/raw/qwen-master.png
+!art-src/baleen/raw/glm-master.png
+!art-src/baleen/raw/glm-nobg.png
+!art-src/baleen/raw/glm-nobg.json
+!art-src/baleen/raw/glm-ghost-master.png
+!art-src/baleen/raw/minimax-master.png
 !art-src/baleen/raw/swing-master.png
 !art-src/baleen/raw/swing-nobg.png
 !art-src/baleen/raw/swing-nobg.json

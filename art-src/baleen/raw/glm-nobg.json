@@ -1,0 +1,9 @@
+{
+  "model": "remove-bg",
+  "id": "1f1dd001-c28c-6b10-8217-0a6fc8fb8a49",
+  "source": "art-src/baleen/raw/glm-master.png",
+  "imageId": "9c7940a3-dc92-4594-b430-3a9593a716d3",
+  "cost": "0.1047",
+  "unit": "DOLLARS",
+  "output": "art-src/baleen/raw/glm-nobg.png"
+}
