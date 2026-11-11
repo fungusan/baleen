@@ -227,8 +227,8 @@ The character is derivative fan art:
   renders. Kimi is a Moonshot AI character: non-commercial fan art only, with no affiliation or
   endorsement implied.
 - The Fan (Qwen), Cat and Ghost (GLM), and Reporter (MiniMax) drawings were supplied for this build
-  with no illustrator recorded. Treat them as non-commercial fan art of those providers' brands, and
-  settle the credit before distributing.
+  and are ZipZipPipe drawings too. Treat them as non-commercial fan art of those providers' brands,
+  with no affiliation or endorsement implied.
 - The unused wisteria-swing source (`raw/swing-master.png`) is by **阮米糕**, who publishes on Pixiv
   and X under that name. The artist's terms: credit the source when reposting, no commercial use
   (转载请标明出处，禁止商用). It is kept as source only and no build ships it.

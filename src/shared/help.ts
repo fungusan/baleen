@@ -17,7 +17,7 @@ Memory: the Memory row at the bottom of Connection opens its own page with Balee
 
 Limits: Baleen cannot click, scroll, or edit the page for the reader, and normal talk replies are deliberately one short sentence.
 
-Attribution: the character art is derivative fan art by ZipZipPipe (pixiv.net/artworks/148186519), based on 上善's whale-girl OC, licensed CC BY-NC-SA 4.0. The witch drawings and the Kimi costume renders are also by ZipZipPipe; Kimi is a Moonshot AI character, used here as non-commercial fan art and not affiliated with or endorsed by Moonshot. It is all non-commercial; the credit link is in the popup footer.`;
+Attribution: the character art is derivative fan art by ZipZipPipe (pixiv.net/artworks/148186519), based on 上善's whale-girl OC, licensed CC BY-NC-SA 4.0. Every drawing is by ZipZipPipe; Kimi is a Moonshot AI character, used here as non-commercial fan art and not affiliated with or endorsed by Moonshot. It is all non-commercial; the credit link is in the popup footer.`;
 
 const ASKS_ABOUT_BALEEN = [
   /\bbaleen\b/i,

@@ -66,7 +66,7 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 </section>
 </main>
 <p id="status" role="status"></p>
-<footer><span>Alt/Option + Shift + G toggles</span><span class="links"><a href="https://fungusan.com/baleen/privacy" target="_blank" rel="noreferrer">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="https://www.pixiv.net/en/artworks/148186519" target="_blank" rel="noreferrer" title="DeepSeek and Kimi character art by ZipZipPipe, based on 上善's whale-girl OC (CC BY-NC-SA 4.0)">DeepSeek &amp; Kimi art: ZipZipPipe</a></span></footer>`;
+<footer><span>Alt/Option + Shift + G toggles</span><span class="links"><a href="https://fungusan.com/baleen" target="_blank" rel="noreferrer">Privacy</a><span class="sep" aria-hidden="true">·</span><a href="https://www.pixiv.net/en/artworks/148186519" target="_blank" rel="noreferrer" title="Character art by ZipZipPipe, based on 上善's whale-girl OC (CC BY-NC-SA 4.0)">Art by ZipZipPipe</a></span></footer>`;
 
 async function main() {
   let settings = await readSettings();

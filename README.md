@@ -229,11 +229,11 @@ The character renders are derivative fan art, not original work for this project
   with or endorsement by Moonshot.
 - Flash costume: the broom witch is also a ZipZipPipe render.
 - Pro costume: the moon-staff witch gown is a ZipZipPipe render.
-- Qwen, GLM, and MiniMax costumes: the Fan gown, the gothic Cat, the Ghost poncho, and the Reporter
-  drawings were supplied for this build. Qwen is Alibaba's, GLM is Zhipu's (Z.AI), and MiniMax is
+- All ten drawings are by ZipZipPipe: the maid, the moon-staff and broom witches, the moonlit and
+  pumpkin Kimi costumes, and the Qwen, GLM, and MiniMax sheets (the Fan gown, the gothic Cat, the
+  Ghost poncho, and the Reporter). Qwen is Alibaba's, GLM is Zhipu's (Z.AI), and MiniMax is
   MiniMax's; all are used as non-commercial fan art and imply no affiliation with or endorsement by
-  those companies. **The illustrator is not recorded in the supplied files — confirm the credit
-  before distributing this build.**
+  those companies.
 - Kept source, not bundled: the wisteria-swing drawing by 阮米糕 (Pixiv and X under that name;
   credit the source when reposting, no commercial use) stays under `art-src/baleen/raw/` as a
   supplied master for a future look, but no build ships it.
