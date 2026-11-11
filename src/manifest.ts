@@ -7,7 +7,7 @@ export default defineManifest({
   name: 'Baleen',
   version: '2.0.0',
   description:
-    'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek, Kimi, Qwen, GLM, or MiniMax API key.',
+    'A whale companion who chats about what you highlight and summarizes pages with your own DeepSeek, Kimi, Qwen, GLM, or MiniMax key.',
   // 123 is the first Chrome with `light-dark()`; the UI tokens depend on it.
   minimum_chrome_version: '123',
   permissions: ['storage', 'scripting', 'webRequest'],
