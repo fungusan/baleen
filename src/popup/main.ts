@@ -5,6 +5,7 @@ import { deleteNote, readNotes, saveNote, watchNotes, type NoteEntry } from '../
 import { characterById, costumeFor, costumesFor } from '../shared/characters';
 import { MODEL_META, MODEL_SHORT, PICKER_MODELS, PROVIDER_HOSTS, PROVIDER_LABELS, providerForModel } from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
+import { typeAhead } from '../shared/typeAhead';
 import type {
   CharacterId,
   ChatExportScope,
@@ -179,12 +180,23 @@ async function main() {
   const modelMenu = must<HTMLElement>('#model-menu');
   const modelValue = must('#model-value');
   const modelChoices = [...modelMenu.querySelectorAll<HTMLButtonElement>('.drop-option')];
+  const pickModel = typeAhead(
+    modelChoices,
+    (choice) => choice.querySelector('.drop-name span:last-child')?.textContent ?? '',
+    () => (modelMenu.contains(document.activeElement) ? (document.activeElement as HTMLButtonElement) : null),
+  );
   function setModelOpen(open: boolean) {
     modelMenu.hidden = !open;
     modelButton.setAttribute('aria-expanded', String(open));
     if (!open) return;
+    modelMenu.classList.toggle(
+      'up',
+      modelButton.getBoundingClientRect().bottom + modelMenu.offsetHeight + 8 > innerHeight,
+    );
     const selected = modelChoices.find((choice) => choice.getAttribute('aria-selected') === 'true');
-    (selected ?? modelChoices[0])?.focus();
+    const target = selected ?? modelChoices[0];
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: 'nearest' });
   }
   modelButton.onclick = () => setModelOpen(modelMenu.hidden);
   modelButton.onkeydown = (event) => {
@@ -199,12 +211,29 @@ async function main() {
       modelButton.focus();
       return;
     }
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
-    const step = event.key === 'ArrowDown' ? 1 : -1;
-    const index = modelChoices.indexOf(document.activeElement as HTMLButtonElement);
-    modelChoices[(index + step + modelChoices.length) % modelChoices.length].focus();
+    // Tab leaves the list, so it must not stay open behind the focus.
+    if (event.key === 'Tab') {
+      setModelOpen(false);
+      return;
+    }
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      (event.key === 'Home' ? modelChoices[0] : modelChoices.at(-1))?.focus();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      const index = modelChoices.indexOf(document.activeElement as HTMLButtonElement);
+      modelChoices[(index + step + modelChoices.length) % modelChoices.length].focus();
+      return;
+    }
+    if (pickModel(event)) event.preventDefault();
   };
+  modelDropdown.addEventListener('focusout', (event) => {
+    const next = (event as FocusEvent).relatedTarget;
+    if (!(next instanceof Node) || !modelDropdown.contains(next)) setModelOpen(false);
+  });
   for (const choice of modelChoices) {
     choice.onclick = () => {
       const model = choice.dataset.model as Model;

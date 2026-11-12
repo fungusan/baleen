@@ -15,6 +15,7 @@ import {
   providerForModel,
 } from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
+import { typeAhead } from '../shared/typeAhead';
 import type {
   ChatExportScope,
   ChatTurn,
@@ -112,7 +113,7 @@ const CHAT_CSS = `
     --accent-soft:light-dark(rgba(132,159,93,.08),rgba(154,184,110,.14));
     --accent-line:light-dark(rgba(132,159,93,.45),rgba(154,184,110,.5));
     --danger:light-dark(#b91c1c,#f87171); --on-accent:light-dark(#ffffff,#000000);
-    --shadow:0 16px 40px light-dark(rgba(17,24,39,.16),rgba(0,0,0,.55));
+    --shadow:0 12px 34px light-dark(rgba(17,24,39,.14),rgba(0,0,0,.55)),0 1px 2px light-dark(rgba(17,24,39,.08),rgba(0,0,0,.4));
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
     --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
     color-scheme:light dark;
@@ -254,11 +255,12 @@ const CHAT_CSS = `
   .model-trigger:disabled { opacity:.5; cursor:default; }
   .model-trigger .model-glyph { width:13px; height:13px; }
   .model-glyph { display:block; flex:none; width:11px; height:11px; fill:currentColor; }
-  .model-menu { position:fixed; z-index:9; min-width:184px; padding:3px; border:1px solid var(--line); border-radius:8px; background:var(--bg); box-shadow:var(--shadow); }
+  .model-menu { position:fixed; z-index:9; min-width:184px; max-height:min(320px,70vh); overflow:auto; padding:3px; border:1px solid var(--line); border-radius:8px; background:var(--bg); box-shadow:var(--shadow); }
   .model-menu[hidden] { display:none!important; }
   .model-option { display:flex; align-items:center; gap:6px; width:100%; padding:4px 7px; border-radius:5px; color:var(--body); font:10.5px/1.5 var(--sans); text-align:left; }
   .model-option .model-glyph { width:12px; height:12px; color:var(--faint); }
-  .model-option:hover,.model-option:focus-visible { background:var(--sunken); color:var(--ink); outline:none; }
+  .model-option:hover { background:var(--sunken); color:var(--ink); }
+  .model-option:focus-visible { background:var(--sunken); color:var(--ink); outline:2px solid var(--accent); outline-offset:-2px; }
   .model-option[aria-selected="true"] { background:var(--accent-soft); color:var(--ink); }
   .model-option[aria-selected="true"] .model-glyph { color:var(--accent); }
   .model-opt-name { flex:1; min-width:0; }
@@ -969,18 +971,24 @@ export function createHost(
       if (!event.composedPath().includes(picker)) closeMenu();
     };
     const closeOnViewport = () => closeMenu();
+    const chosenOption = () =>
+      options.find((option) => option.getAttribute('aria-selected') === 'true') ?? options[0];
     function openMenu(focusSelected = false) {
-      if (trigger.disabled || !menu.hidden) return;
-      menu.hidden = false;
-      trigger.setAttribute('aria-expanded', 'true');
-      placeMenu();
-      addEventListener('pointerdown', closeOnOutside, true);
-      addEventListener('scroll', closeOnViewport, true);
-      addEventListener('resize', closeOnViewport);
-      if (focusSelected) {
-        const selected = options.find((option) => option.getAttribute('aria-selected') === 'true');
-        (selected ?? options[0])?.focus();
+      if (trigger.disabled) return;
+      if (menu.hidden) {
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        placeMenu();
+        addEventListener('pointerdown', closeOnOutside, true);
+        addEventListener('scroll', closeOnViewport, true);
+        addEventListener('resize', closeOnViewport);
       }
+      if (!focusSelected) return;
+      const chosen = chosenOption();
+      chosen.focus();
+      // The list scrolls inside its own box; never let the page move under it.
+      if (menu.scrollHeight > menu.clientHeight)
+        menu.scrollTop = chosen.offsetTop - menu.clientHeight / 2 + chosen.offsetHeight / 2;
     }
     function closeMenu(refocus = false) {
       if (menu.hidden) return;
@@ -991,7 +999,7 @@ export function createHost(
       removeEventListener('resize', closeOnViewport);
       if (refocus) trigger.focus();
     }
-    trigger.onclick = () => (menu.hidden ? openMenu() : closeMenu(true));
+    trigger.onclick = () => (menu.hidden ? openMenu(true) : closeMenu(true));
     trigger.onkeydown = (event) => {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
@@ -1002,6 +1010,11 @@ export function createHost(
       const index = options.indexOf(deepActiveElement() as HTMLButtonElement);
       options[(index + step + options.length) % options.length].focus();
     };
+    const pickOption = typeAhead(
+      options,
+      (option) => option.querySelector('.model-opt-name')?.textContent ?? '',
+      () => deepActiveElement() as HTMLButtonElement | null,
+    );
     menu.onkeydown = (event) => {
       if (event.key === 'ArrowDown') {
         event.preventDefault();
@@ -1019,6 +1032,7 @@ export function createHost(
         event.preventDefault();
         closeMenu(true);
       } else if (event.key === 'Tab') closeMenu();
+      else if (pickOption(event)) event.preventDefault();
     };
     return {
       element: picker,

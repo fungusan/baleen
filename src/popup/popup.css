@@ -1,7 +1,11 @@
 /*
  * Baleen menu. Quiet settings: every preference sits on one calm level in grouped sunken cards,
- * and Study alone opens a second level. 11px sentence-case labels, 34px rows, 30px controls,
- * one sage accent, and a filled primary only where a reading action starts something.
+ * and Study alone opens a second level. One accent, and a filled primary only where a reading
+ * action starts something.
+ *
+ * Rhythm follows the Astryx specs: every clickable control is --control-h tall, every row
+ * --row-h, and radii are concentric (inner = surface - padding). Five type roles only:
+ * 14 title, 13 view title, 12 label/control, 11 supporting/meta, 9.5 the version pill.
  */
 :root {
   --bg: light-dark(#ffffff, #0b0b0c);
@@ -23,6 +27,15 @@
   --cream: #f5f2ec;
   --navy: #0e2a55;
   --danger: light-dark(#b42318, #f97086);
+  /* One rhythm for every control and row; one edge language, one depth. */
+  --control-h: 28px;
+  --control-sm: 24px;
+  --row-h: 34px;
+  --radius-surface: 10px;
+  --radius-control: 7px;
+  --radius-inset: 6px;
+  --shadow-float: 0 12px 34px light-dark(rgba(17, 24, 39, 0.14), rgba(0, 0, 0, 0.55)),
+    0 1px 2px light-dark(rgba(17, 24, 39, 0.08), rgba(0, 0, 0, 0.4));
   --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   font: 12px/1.45 var(--sans);
   color: var(--body);
@@ -66,9 +79,10 @@ button:disabled {
   cursor: default;
   opacity: 0.5;
 }
+/* One ring for every focus target, drawn inside so clipped rows keep a whole outline. */
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 /* Header — the brand mark, name, one line of context, and the build. */
@@ -135,16 +149,16 @@ h1 {
   margin-top: 8px;
 }
 .card {
-  padding: 2px 10px;
+  padding: 4px 10px;
   background: var(--sunken);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 34px;
+  min-height: var(--row-h);
 }
 .label {
   font-size: 12px;
@@ -164,6 +178,7 @@ h1 {
   display: inline-flex;
   flex: none;
   gap: 1px;
+  height: var(--control-h);
   padding: 2px;
   background: var(--bg);
   border: 1px solid var(--line);
@@ -183,10 +198,12 @@ h1 {
   cursor: pointer;
 }
 .seg span {
-  display: block;
-  padding: 5px 6px;
-  border-radius: 6px;
-  font-size: 10.5px;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--radius-inset);
+  font-size: 11px;
   line-height: 1;
   color: var(--muted);
   white-space: nowrap;
@@ -207,10 +224,10 @@ h1 {
 }
 .seg input:focus-visible + span {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
 
-/* Switches and the size slider keep their 30px control height. */
+/* Switches keep an 18px track and gain a 28px target; the slider's track is 2px, its target 24. */
 .switch {
   position: relative;
   flex: none;
@@ -219,6 +236,11 @@ h1 {
   border-radius: 999px;
   background: var(--stone);
   transition: background 0.15s;
+}
+.switch::before {
+  content: '';
+  position: absolute;
+  inset: -5px -4px;
 }
 .switch::after {
   content: '';
@@ -241,10 +263,9 @@ h1 {
 .slider {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 4px 8px;
+  gap: 2px 8px;
   align-items: center;
-  min-height: 34px;
-  padding: 5px 0 8px;
+  padding: 5px 0 3px;
 }
 .slider .value {
   font-size: 11px;
@@ -257,7 +278,7 @@ h1 {
 }
 #scale {
   width: 100%;
-  height: 16px;
+  height: 24px;
   margin: 0;
   cursor: pointer;
   background: transparent;
@@ -288,12 +309,12 @@ h1 {
 /* Connection — key chip and the model field sit in the same card. */
 .chip-button {
   flex: none;
-  height: 28px;
-  padding: 0 9px;
+  height: var(--control-h);
+  padding: 0 10px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 7px;
-  font-size: 11px;
+  border-radius: var(--radius-control);
+  font-size: 12px;
   line-height: 1;
   color: var(--body);
   transition:
@@ -314,13 +335,13 @@ h1 {
 .key-line input,
 .note-line input {
   min-width: 0;
-  height: 30px;
+  height: var(--control-h);
   padding: 0 9px;
-  font: 11.5px/1.4 var(--sans);
+  font: 12px/1.4 var(--sans);
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
@@ -342,9 +363,9 @@ h1 {
 }
 .key-line .primary {
   flex: none;
-  height: 30px;
-  padding: 0 11px;
-  font-size: 11px;
+  height: var(--control-h);
+  padding: 0 12px;
+  font-size: 12px;
 }
 .key-foot {
   display: flex;
@@ -368,12 +389,12 @@ h1 {
   align-items: center;
   gap: 6px;
   max-width: 196px;
-  height: 28px;
+  height: var(--control-h);
   padding: 0 8px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 7px;
-  font-size: 11.5px;
+  border-radius: var(--radius-control);
+  font-size: 12px;
   line-height: 1;
   color: var(--body);
   white-space: nowrap;
@@ -420,10 +441,13 @@ h1 {
   padding: 4px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow:
-    0 12px 32px light-dark(rgba(17, 24, 39, 0.14), rgba(0, 0, 0, 0.55)),
-    0 1px 3px light-dark(rgba(17, 24, 39, 0.08), rgba(0, 0, 0, 0.4));
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-float);
+}
+/* The field sits low in the panel, so the list opens upward when there is no room below. */
+.model-menu.up {
+  top: auto;
+  bottom: calc(100% + 5px);
 }
 .drop-option {
   display: flex;
@@ -431,10 +455,10 @@ h1 {
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  height: 34px;
+  height: var(--row-h);
   padding: 0 8px;
-  border-radius: 7px;
-  font-size: 11.5px;
+  border-radius: var(--radius-inset);
+  font-size: 12px;
   color: var(--body);
   text-align: left;
   white-space: nowrap;
@@ -446,10 +470,9 @@ h1 {
 .drop-option:focus-visible {
   background: var(--sunken);
   color: var(--ink);
-  outline: none;
 }
 .drop-option:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--accent-line);
+  outline-offset: -2px;
 }
 .drop-option[aria-selected='true'] {
   background: var(--accent-soft);
@@ -467,7 +490,7 @@ h1 {
 }
 .drop-meta {
   flex: none;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--faint);
 }
 
@@ -479,7 +502,7 @@ h1 {
   width: 100%;
   padding: 9px 10px;
   background: var(--sunken);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   text-align: left;
   transition: background 0.12s;
 }
@@ -496,7 +519,7 @@ h1 {
   width: 26px;
   height: 26px;
   background: var(--cream);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   color: var(--navy);
 }
 .booktile svg {
@@ -511,7 +534,7 @@ h1 {
   flex-direction: column;
 }
 .study-text strong {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.3;
   color: var(--ink);
@@ -534,9 +557,9 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 28px;
+  height: var(--control-h);
   padding: 0 9px 0 7px;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   font-size: 11px;
   color: var(--muted);
   transition:
@@ -572,10 +595,10 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 30px;
+  height: var(--control-h);
   padding: 0 12px;
-  border-radius: 7px;
-  font-size: 11.5px;
+  border-radius: var(--radius-control);
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
@@ -630,7 +653,7 @@ h1 {
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  height: 32px;
+  height: var(--row-h);
   padding: 0 12px;
   font-size: 12px;
   line-height: 1.3;
@@ -640,10 +663,6 @@ h1 {
 }
 .chat-toggle:hover {
   background: var(--sunken-hover);
-}
-.chat-toggle:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--accent);
 }
 .chat-toggle .chev {
   transform: rotate(-45deg);
@@ -659,11 +678,11 @@ h1 {
   padding: 0 10px 8px;
 }
 .chat-action {
-  height: 26px;
+  height: var(--control-sm);
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  font-size: 10.5px;
+  border-radius: var(--radius-inset);
+  font-size: 11px;
   color: var(--muted);
   transition:
     color 0.15s,
@@ -676,12 +695,12 @@ h1 {
 .text-button {
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  height: var(--control-sm);
   padding: 0 8px;
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 6px;
-  font-size: 10.5px;
+  border-radius: var(--radius-inset);
+  font-size: 11px;
   color: var(--muted);
   white-space: nowrap;
   transition:
@@ -716,11 +735,6 @@ h1 {
 .link-row:hover .label {
   color: var(--accent-text);
 }
-.link-row:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--accent);
-  border-radius: 6px;
-}
 .memory-add {
   margin-left: auto;
 }
@@ -744,13 +758,13 @@ h1 {
 }
 .note-form {
   margin-bottom: 8px;
-  padding: 9px;
+  padding: 10px;
   background: var(--sunken);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 .note-form-title {
   margin: 0 0 6px;
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.3;
   color: var(--muted);
 }
@@ -769,22 +783,22 @@ h1 {
   min-height: 54px;
   padding: 6px 9px;
   resize: vertical;
-  font: 11.5px/1.5 var(--sans);
+  font: 12px/1.5 var(--sans);
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 .note-form .actions {
   margin-top: 8px;
 }
 .note-form .primary {
-  height: 28px;
+  height: var(--control-h);
   padding: 0 10px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .note-form .text-button {
-  height: 28px;
+  height: var(--control-h);
   padding: 0 6px;
   background: transparent;
   border-color: transparent;
@@ -798,7 +812,7 @@ h1 {
   padding: 0;
   list-style: none;
   background: var(--sunken);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
 }
 .notes:empty {
   display: none;
@@ -818,7 +832,7 @@ h1 {
 }
 .note-text strong {
   display: block;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
   color: var(--ink);
@@ -828,7 +842,7 @@ h1 {
   display: -webkit-box;
   margin: 1px 0 0;
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -845,7 +859,7 @@ h1 {
   padding: 0;
   background: transparent;
   color: var(--accent-text);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.4;
 }
 .note-value-more:hover {
@@ -883,17 +897,16 @@ h1 {
   margin-top: 8px;
 }
 
-/* Status and footer close the window. */
+/* Status and footer close the window. The status line is always reserved, so a save error
+   or a busy message never resizes the panel under the reader's pointer. */
 #status {
   margin: 0;
+  min-height: 17px;
   padding: 0 14px;
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--muted);
   overflow-wrap: anywhere;
-}
-#status:not(:empty) {
-  margin-top: 8px;
 }
 #status[data-tone='error'] {
   color: var(--danger);
@@ -903,10 +916,10 @@ footer {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  margin: 12px 14px 0;
-  padding: 10px 0 12px;
+  margin: 0 14px;
+  padding: 8px 0 12px;
   border-top: 1px solid var(--line);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--faint);
   text-align: center;
