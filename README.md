@@ -1,6 +1,6 @@
 # Baleen
 
-Manifest V3 Chromium extension (`2.0.0`). She appears on every HTTP(S) page as one of ten idle
+Manifest V3 Chromium extension (`2.0.1`). She appears on every HTTP(S) page as one of ten idle
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
 section you highlight, and runs keywords or a whole-page summary through your own DeepSeek, Kimi,
 Qwen, GLM, or MiniMax API key. Top-level PDFs open in a bundled reader with the same selection chat
