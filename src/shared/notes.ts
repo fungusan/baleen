@@ -118,6 +118,35 @@ export async function deleteNote(key: string): Promise<boolean> {
   });
 }
 
+export interface MergeReport {
+  added: number;
+  updated: number;
+}
+
+/**
+ * An import merges instead of replacing: a key in the file is taken only when its copy is newer,
+ * so importing an old file cannot silently undo something learned since.
+ */
+export async function mergeNotes(entries: NoteEntry[]): Promise<MergeReport> {
+  return enqueue(async () => {
+    const incoming = entriesFrom(entries);
+    const report: MergeReport = { added: 0, updated: 0 };
+    if (!incoming.length) return report;
+    const current = await readAll();
+    const byKey = new Map(current.map((note) => [note.key.toLowerCase(), note]));
+    for (const note of incoming) {
+      const key = note.key.toLowerCase();
+      const existing = byKey.get(key);
+      if (existing && note.at < existing.at) continue;
+      if (existing) report.updated += 1;
+      else report.added += 1;
+      byKey.set(key, note);
+    }
+    await writeAll([...byKey.values()]);
+    return report;
+  });
+}
+
 export interface NoteDraft {
   key: string;
   value: string;
@@ -147,23 +176,73 @@ function parseDraft(raw: string): NoteDraft | null {
   }
 }
 
-export function takeNote(reply: string): TakenNote {
-  let note: NoteDraft | null = null;
-  const kept: string[] = [];
-  for (const line of reply.split('\n')) {
-    // The memory marker is accepted too, so a reply from an older prompt still lands safely.
-    const match = line.match(/^\s*\[\[BALEEN-(?:NOTE|MEMORY)\]\]\s*(\{.*\})\s*$/);
-    if (!match) {
-      kept.push(line);
+const MARKER = /\[\[\s*BALEEN-(?:NOTE|MEMORY)\s*\]\]/gi;
+/** Only whitespace, a Markdown wrapper, or a code fence may sit between the marker and its JSON. */
+const MARKER_GAP = /^[\s`~*_]*(?:json)?[\s`~*_]*$/i;
+
+/** The end of the first balanced JSON object after `from`, or -1 when there is none. */
+function jsonEndAt(text: string, from: number): number {
+  const start = text.indexOf('{', from);
+  if (start < 0 || start - from > 4000) return -1;
+  if (!MARKER_GAP.test(text.slice(from, start))) return -1;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') quoted = false;
       continue;
     }
-    if (!note) note = parseDraft(match[1]);
+    if (char === '"') quoted = true;
+    else if (char === '{') depth += 1;
+    else if (char === '}' && (depth -= 1) === 0) return index + 1;
   }
-  let text = kept.join('\n').trim();
-  // A provider that puts the marker mid-sentence still must never leak it into the chat.
-  const leaked = text.search(/\[\[BALEEN-(?:NOTE|MEMORY)\]\]/);
-  if (leaked >= 0) text = text.slice(0, leaked).trim();
-  return { text, note };
+  return -1;
+}
+
+export function takeNote(reply: string): TakenNote {
+  let note: NoteDraft | null = null;
+  let text = reply;
+  MARKER.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = MARKER.exec(text))) {
+    const after = MARKER.lastIndex;
+    const end = jsonEndAt(text, after);
+    let draft: NoteDraft | null = null;
+    if (end > 0) draft = parseDraft(text.slice(after, end));
+    let start = match.index;
+    if (draft) {
+      // A bullet, bold wrapper, or fence around the marker is part of the hidden line too.
+      const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+      if (/^[ \t]*(?:[-*+][ \t]+|[*_`]{1,3}[ \t]*)*$/.test(text.slice(lineStart, start)))
+        start = lineStart;
+      let cut = end;
+      // Trailing punctuation the model added after the object belongs to the hidden line.
+      const tail = text.slice(cut).match(/^[ \t]*[.。,;:!?]/);
+      if (tail) cut += tail[0].length;
+      if (!note) note = draft;
+      text = `${text.slice(0, start)}${text.slice(cut)}`;
+      MARKER.lastIndex = start;
+    } else {
+      // An unreadable marker is still hidden so it cannot leak into the chat.
+      text = `${text.slice(0, start)}${text.slice(after)}`;
+      MARKER.lastIndex = start;
+    }
+  }
+  if (!note) return { text: text.trim(), note };
+  return {
+    text: text
+      .replace(/^[ \t]*(?:```|~~~)[a-z0-9-]*[ \t]*$/gim, '')
+      .replace(/^[ \t]*[-*+][ \t]*$/gm, '')
+      .replace(/^[ \t]*[*_`]{1,3}[ \t]*$/gm, '')
+      .replace(/[ \t]+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+    note,
+  };
 }
 
 /** Re-render the notes list when another surface (a page chat, another popup) writes one. */

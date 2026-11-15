@@ -1,3 +1,4 @@
+import type { NoteEntry } from '../shared/notes';
 import type { PreviousPage, PreviousState, RenderResult } from '../shared/wiki';
 
 /**
@@ -182,7 +183,8 @@ function bodyOf(text: string): { body: string; footnotes: string } {
   return { body, footnotes };
 }
 
-function stateOf(text: string): PreviousPage {
+/** The page as an earlier compile left it; the session's cumulative state reuses this parser. */
+export function parsePageState(text: string): PreviousPage {
   const { body, footnotes } = bodyOf(text);
   return {
     revision: Number(field(text, 'revision') ?? '0') || 0,
@@ -266,15 +268,20 @@ export async function readPrevious(folder: FileSystemDirectoryHandle): Promise<P
       if (!mine) owned.add(`${dirName}/${name}`);
       const title = field(text, 'title') ?? fileTitle;
       if (dirName === 'concepts') {
-        state.concepts[title] = stateOf(text);
+        state.concepts[title] = parsePageState(text);
         present.set(fileTitle.toLowerCase(), fileTitle);
         byFile.set(fileTitle.toLowerCase(), state.concepts[title]);
         if (mine) written.add(fileTitle.toLowerCase());
-      } else if (dirName === 'context') state.context = stateOf(text);
-      else if (!state.source || (stateOf(text).revision ?? 0) >= state.source.revision) {
-        state.source = stateOf(text);
-        const hash = field(text, 'sha256');
-        if (hash) state.sourceHash = hash;
+      } else if (dirName === 'context') state.context = parsePageState(text);
+      else {
+        const parsed = parsePageState(text);
+        state.sources ??= {};
+        state.sources[title] = parsed;
+        if (!state.source || (parsed.revision ?? 0) >= state.source.revision) {
+          state.source = parsed;
+          const hash = field(text, 'sha256');
+          if (hash) state.sourceHash = hash;
+        }
       }
     }
   }
@@ -391,4 +398,44 @@ export async function writeWiki(
   await writeText(folder, 'log', `${log.trimEnd()}\n\n${entry}`);
   written.push('log.md');
   return { folderPath: `Baleen/${result.folder}`, written, skipped, left };
+}
+
+function dayStamp(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function memoryMarkdown(notes: NoteEntry[], date: string): string {
+  const lines = [
+    '---',
+    'type: memory',
+    'generated: true',
+    'generator: baleen',
+    `updated: ${date}`,
+    `entries: ${notes.length}`,
+    '---',
+    '',
+    '# Baleen memory',
+    '',
+    `A copy of what Baleen remembers on this device, written ${date}. Baleen keeps reading her own copy; editing this file does not change it, and the next save replaces this file.`,
+    '',
+  ];
+  if (!notes.length) lines.push('_Nothing remembered yet._');
+  for (const note of notes) {
+    const key = note.key.replace(/([\\`*_\[\]<>])/g, '\\$1');
+    lines.push(`- **${key}** — ${note.value.replace(/\r?\n/g, '\n  ')}`);
+  }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+/** One readable Markdown file beside the wiki folders, overwritten on each save. */
+export async function saveMemoryToVault(
+  vault: FileSystemDirectoryHandle,
+  notes: NoteEntry[],
+): Promise<string> {
+  const root = await vault.getDirectoryHandle('Baleen', { create: true });
+  await writeText(root, 'memory', memoryMarkdown(notes, dayStamp()));
+  return 'Baleen/memory.md';
 }

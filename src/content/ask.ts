@@ -164,3 +164,57 @@ export async function requestAsk(request: AskRequest): Promise<AskResult> {
   if (!reply?.ok || !reply.data) throw new Error(reply?.error ?? 'Baleen did not answer.');
   return reply.data;
 }
+/**
+ * The streamed form of `requestAsk`: visible text arrives through `onDelta` while the answer is
+ * written, and the finished result carries the buffered reasoning and usage. Closing the page
+ * disconnects the port, which aborts the request in the worker.
+ */
+export function requestAskStream(
+  request: AskRequest,
+  onDelta: (text: string) => void,
+): Promise<AskResult> {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.id)
+    return Promise.reject(new Error('Open this page from the installed extension.'));
+  return new Promise<AskResult>((resolve, reject) => {
+    let port: chrome.runtime.Port;
+    try {
+      port = chrome.runtime.connect({ name: 'fg:ask-stream' });
+    } catch {
+      reject(new Error('The extension was reloaded. Refresh the page and try again.'));
+      return;
+    }
+    let settled = false;
+    const settle = (run: () => void) => {
+      if (settled) return;
+      settled = true;
+      run();
+    };
+    port.onMessage.addListener((message: unknown) => {
+      const m = message as {
+        type?: string;
+        text?: string;
+        data?: AskResult;
+        message?: string;
+      };
+      if (m.type === 'delta') {
+        if (!settled && typeof m.text === 'string') onDelta(m.text);
+        return;
+      }
+      if (m.type === 'done' && m.data) {
+        settle(() => resolve(m.data as AskResult));
+        return;
+      }
+      if (m.type === 'error')
+        settle(() => reject(new Error(m.message ?? 'Baleen did not answer.')));
+    });
+    port.onDisconnect.addListener(() => {
+      settle(() => reject(new Error('The answer was cut off. Try again.')));
+    });
+    try {
+      port.postMessage({ type: 'ask', request });
+    } catch {
+      port.disconnect();
+      settle(() => reject(new Error('The extension was reloaded. Refresh the page and try again.')));
+    }
+  });
+}

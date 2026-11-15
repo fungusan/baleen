@@ -896,6 +896,14 @@ h1 {
 #notes-empty {
   margin-top: 8px;
 }
+.memory-io {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.memory-io .hint {
+  margin: 4px 0 0;
+}
 
 /* Status and footer close the window. The status line is always reserved, so a save error
    or a busy message never resizes the panel under the reader's pointer. */

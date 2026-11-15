@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memory in Obsidian · Baleen</title>
+  </head>
+  <body>
+    <header class="top">
+      <img class="portrait" src="icons/128.png" alt="" width="22" height="22" />
+      <div class="identity">
+        <h1>Memory in Obsidian</h1>
+        <p class="tagline">A Markdown copy for your vault</p>
+      </div>
+    </header>
+
+    <main class="view">
+      <div class="step-scroll">
+        <div class="vault">
+          <div class="vault-text">
+            <p id="vault-name" class="vault-name">Loading…</p>
+            <p id="vault-line" class="hint"></p>
+          </div>
+          <button id="pick" class="secondary" type="button" hidden>Change</button>
+        </div>
+        <p id="memory-stats" class="stats"></p>
+        <p id="status" class="status" role="status"></p>
+        <div id="saved" class="saved" hidden>
+          <p class="saved-label">Saved</p>
+          <p id="saved-path" class="saved-path"></p>
+          <p id="saved-note" class="hint saved-note"></p>
+          <div class="bar">
+            <a id="open-vault" class="open-vault" href="#" hidden>Open in Obsidian</a>
+            <button id="done" class="primary" type="button">Done</button>
+          </div>
+        </div>
+        <p class="hint foot-note">
+          Baleen keeps her own memory in the extension. Editing this file does not change what she
+          remembers, and the next save replaces it.
+        </p>
+      </div>
+      <div id="actions" class="bar">
+        <button id="save" class="primary" type="button" disabled>Save to vault</button>
+      </div>
+    </main>
+
+    <script type="module" src="/src/memory/main.ts"></script>
+  </body>
+</html>

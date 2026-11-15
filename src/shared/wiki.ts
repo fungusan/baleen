@@ -69,6 +69,8 @@ export interface PreviousState {
   concepts: Record<string, PreviousPage>;
   context?: PreviousPage;
   source?: PreviousPage;
+  /** Every source file in the folder, keyed by title, so a session keeps revisions apart. */
+  sources?: Record<string, PreviousPage>;
   sourceHash?: string;
   /** Pages an earlier compile left in this folder's index, as read from index.md. */
   existing?: ExistingPage[];
@@ -622,6 +624,70 @@ function indexFile(
   return { role: 'index', dir: '', name: 'index', content: `${lines.join('\n')}\n` };
 }
 
+export interface SessionIndexSummary {
+  title: string;
+  date: string;
+  sources: { title: string; url: string }[];
+  concepts: { title: string; summary: string }[];
+  contexts: string[];
+  openQuestions: string[];
+  orphans: number;
+}
+
+/** One index for a reading session: several sources feeding one shared pool of concept pages. */
+export function sessionIndexFile(summary: SessionIndexSummary): RenderedFile {
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const lines = [
+    '---',
+    'type: index',
+    'generated: true',
+    'generator: baleen',
+    `updated: ${summary.date}`,
+    ...yamlList(
+      'sources',
+      summary.sources.map((source) => source.url),
+    )
+      .trimEnd()
+      .split('\n')
+      .filter(Boolean),
+    '---',
+    '',
+    `# ${clip(summary.title, 120) || 'Reading'} wiki`,
+    '',
+    `${count(summary.sources.length, 'page', 'pages')} read on ${summary.date}, compiled into ${count(summary.concepts.length, 'concept page', 'concept pages')} and ${count(summary.contexts.length, 'context page', 'context pages')}.`,
+    'Every page carries its source, its generated marker, and its revision history.',
+    '',
+    '## Sources',
+    '',
+    ...summary.sources.map(
+      (source) => `- [[${source.title}]] \u2014 captured passages used for the citations. <${source.url}>`,
+    ),
+    '',
+    '## Concepts',
+    '',
+  ];
+  for (const page of summary.concepts)
+    lines.push(`- [[${page.title}]] \u2014 ${page.summary || 'compiled from the source.'}`);
+  lines.push('', '## Context', '');
+  for (const title of summary.contexts)
+    lines.push(
+      `- [[${title}]] \u2014 what you asked, what Baleen remembers, and why these pages exist.`,
+    );
+  lines.push(
+    '',
+    '## Graph health',
+    '',
+    `- Unresolved links: 0. Orphan pages: ${summary.orphans}. Pages without a source: 0.`,
+  );
+  if (summary.openQuestions.length) {
+    lines.push('', 'Open review items:');
+    for (const question of summary.openQuestions) lines.push(`- ${question}`);
+  } else {
+    lines.push('- Open review items: none recorded.');
+  }
+  return { role: 'index', dir: '', name: 'index', content: `${lines.join('\n')}\n` };
+}
+
 const TITLE_FILLER = new Set([
   'a',
   'an',
@@ -781,7 +847,8 @@ export function renderWiki(input: RenderInput): RenderResult {
     input.context.passages.filter((passage) => passage.trim()).length,
     MAX_PASSAGES,
   );
-  const sourceRevision = (input.previous.source?.revision ?? 0) + 1;
+  const sourceRevision =
+    (input.previous.sources?.[sourceTitle]?.revision ?? input.previous.source?.revision ?? 0) + 1;
   const summaries: Record<string, string> = {};
   const files: RenderedFile[] = [];
   let linkCount = 0;

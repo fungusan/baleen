@@ -243,6 +243,57 @@ h1 {
   font-size: 10.5px;
 }
 
+/* Session — the tabs in this window, each one a page the compile can include. */
+.queue {
+  padding: 4px 10px 6px;
+  background: var(--sunken);
+  border-radius: 10px;
+}
+.queue-hint {
+  margin: 6px 0 2px;
+  font-size: 10.5px;
+  color: var(--faint);
+}
+.queue-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.queue-list li + li {
+  border-top: 1px solid var(--line);
+}
+.queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.queue-item input {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+.queue-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.queue-title {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.queue-url {
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--faint);
+  overflow-wrap: anywhere;
+}
+
 /* Source — one sunken card, like a Connection group. */
 .source {
   padding: 10px 11px;

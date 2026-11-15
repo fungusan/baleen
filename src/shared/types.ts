@@ -39,6 +39,14 @@ export const PROVIDER_HOSTS: Record<Provider, string> = {
   glm: 'api.z.ai',
   minimax: 'api.minimax.io',
 };
+/** Where each provider issues keys; the popup's Get a key link opens this. */
+export const PROVIDER_KEY_URLS: Record<Provider, string> = {
+  deepseek: 'https://platform.deepseek.com/api_keys',
+  moonshot: 'https://platform.moonshot.ai/console/api-keys',
+  qwen: 'https://modelstudio.console.alibabacloud.com/',
+  glm: 'https://z.ai/manage-apikey/apikey-list',
+  minimax: 'https://platform.minimax.io/user-center/basic-information/interface-key',
+};
 // The chat models exposed in the UI, keyed by the provider that serves them.
 export const MODELS = [
   'deepseek-v4-pro',

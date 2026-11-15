@@ -1,6 +1,6 @@
 import { characterCSS, createCharacter } from './render/compositor';
 import { renderMarkdown } from './render/markdown';
-import { captureSection, pagePassage, requestAsk, type SectionCapture } from './ask';
+import { captureSection, pagePassage, requestAsk, requestAskStream, type SectionCapture } from './ask';
 import { findPassages, viewportPassage, wikiPassages } from './retrieve';
 import { notesContext, readNotes, saveNote, takeNote } from '../shared/notes';
 import { asksAboutBaleen } from '../shared/help';
@@ -203,6 +203,13 @@ const CHAT_CSS = `
     .process::before { animation:none; }
   }
   .msg-assistant[data-kind="error"] { color:var(--danger); font-size:10.5px; }
+  .msg-assistant.streaming::after {
+    content:""; display:inline-block; width:5px; height:11px; margin-left:2px;
+    vertical-align:-1px; background:var(--section, var(--accent));
+    animation:fg-caret .9s steps(1) infinite;
+  }
+  @keyframes fg-caret { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+  @media (prefers-reduced-motion:reduce) { .msg-assistant.streaming::after { animation:none; } }
   .msg-assistant.markdown h1,.msg-assistant.markdown h2,.msg-assistant.markdown h3,
   .msg-assistant.markdown h4,.msg-assistant.markdown h5,.msg-assistant.markdown h6 {
     font:600 13px/1.45 var(--sans);
@@ -368,6 +375,8 @@ interface ChatMessage {
   reasoning?: string;
   /** Milliseconds spent waiting on an answer that came with reasoning. */
   thoughtFor?: number;
+  /** True while text is still arriving; the caret shows the answer is not finished. */
+  streaming?: boolean;
 }
 
 interface ChatAnchor {
@@ -587,8 +596,7 @@ function elementHoldsQuote(element: Element, text: string): boolean {
 }
 
 /** One tidy line that fits a chat header; long names end on a word boundary. */
-function shortenName(value: string, max = 48): string {
-  const text = value
+function shortenName(value: string, max = 48): string {  const text = value
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/^[\s"'“”‘’(]+/, '')
@@ -1799,6 +1807,7 @@ export function createHost(
       if (message.kind) line.dataset.kind = message.kind;
       if (message.role === 'assistant' && !message.kind) {
         line.classList.add('markdown');
+        if (message.streaming) line.classList.add('streaming');
         if (message.reasoning) line.append(thoughtBlock(message));
         line.append(renderMarkdown(message.text));
         bindBlockDrag(block, line, true);
@@ -2402,6 +2411,11 @@ export function createHost(
     block.nameEl.title = next;
     saveChats();
   }
+  /** The visible part of a streamed reply: a memory marker that has begun to arrive stays hidden. */
+  function streamText(value: string): string {
+    const at = value.indexOf('[[BALEEN-');
+    return (at >= 0 ? value.slice(0, at) : value).trimEnd();
+  }
   async function sendChat(block: ChatBlock) {
     if (block.busy || block.closed) return;
     if (!block.anchor.text && !block.anchor.images.length && !block.anchor.study) return;
@@ -2427,31 +2441,69 @@ export function createHost(
     look('thinking');
     const token = ++block.token;
     const started = Date.now();
+    // The answer grows in the thread as it is written; reasoning stays buffered until the end.
+    const streamed: ChatMessage = { role: 'assistant', text: '', model: modelChoice, streaming: true };
+    let raw = '';
+    let placed = false;
+    let lastPaint = 0;
+    let paintTimer = 0;
+    const paint = () => {
+      if (block.closed || token !== block.token) return;
+      const wait = 70 - (Date.now() - lastPaint);
+      if (wait > 0) {
+        if (paintTimer) return;
+        paintTimer = window.setTimeout(() => {
+          paintTimer = 0;
+          if (block.closed || token !== block.token) return;
+          lastPaint = Date.now();
+          renderThread(block);
+          syncBlock(block);
+        }, wait);
+        return;
+      }
+      lastPaint = Date.now();
+      renderThread(block);
+      syncBlock(block);
+    };
     try {
       const notes = notesContext(await readNotes());
-      const answer = await requestAsk({
-        action: 'chat',
-        model: modelChoice,
-        text: block.anchor.study
-          ? findPassages(prompt, undefined, viewportPassage()) || pagePassage()
-          : block.anchor.text,
-        images: block.anchor.images,
-        title: document.title,
-        prompt,
-        history,
-        notes,
-        thinking: true,
-      });
+      const answer = await requestAskStream(
+        {
+          action: 'chat',
+          model: modelChoice,
+          text: block.anchor.study
+            ? findPassages(prompt, undefined, viewportPassage()) || pagePassage()
+            : block.anchor.text,
+          images: block.anchor.images,
+          title: document.title,
+          prompt,
+          history,
+          notes,
+          thinking: true,
+        },
+        (piece) => {
+          if (block.closed || token !== block.token) return;
+          raw += piece;
+          streamed.text = streamText(raw);
+          if (!placed) {
+            placed = true;
+            block.messages.push(streamed);
+            hideProgress(block);
+          }
+          paint();
+        },
+      );
       if (block.closed || token !== block.token) return;
       const reply = takeNote(answer.text);
       const shown = reply.text || (reply.note ? 'Noted — I will remember that.' : '');
-      block.messages.push({
-        role: 'assistant',
-        text: shown || answer.text,
-        model: modelChoice,
-        reasoning: answer.reasoning,
-        thoughtFor: answer.reasoning ? Date.now() - started : undefined,
-      });
+      if (!placed) {
+        placed = true;
+        block.messages.push(streamed);
+      }
+      streamed.text = shown || answer.text;
+      streamed.streaming = false;
+      streamed.reasoning = answer.reasoning;
+      streamed.thoughtFor = answer.reasoning ? Date.now() - started : undefined;
       if (reply.note) void saveNote(reply.note.key, reply.note.value);
       block.usage.textContent = formatUsage(answer.usage);
       block.copy.hidden = false;
@@ -2459,6 +2511,7 @@ export function createHost(
       deliver('happy');
     } catch (error) {
       if (block.closed || token !== block.token) return;
+      streamed.streaming = false;
       block.messages.push({
         role: 'assistant',
         text: error instanceof Error ? error.message : 'Baleen did not answer.',

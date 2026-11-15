@@ -1,9 +1,19 @@
 import './popup.css';
 import { clearApiKey, keyPlaceholder, keyPreview, normalizeApiKey, readApiKey, writeApiKey } from '../shared/key';
 import { readSettings, watchSettings } from '../shared/settings';
-import { deleteNote, readNotes, saveNote, watchNotes, type NoteEntry } from '../shared/notes';
+import { deleteNote, mergeNotes, readNotes, saveNote, watchNotes, type NoteEntry } from '../shared/notes';
+import { memoryDownload, parseMemoryJson } from '../shared/memoryJson';
+import { canWrite, loadVault, saveMemoryToVault } from '../wiki/vault';
 import { characterById, costumeFor, costumesFor } from '../shared/characters';
-import { MODEL_META, MODEL_SHORT, PICKER_MODELS, PROVIDER_HOSTS, PROVIDER_LABELS, providerForModel } from '../shared/types';
+import {
+  MODEL_META,
+  MODEL_SHORT,
+  PICKER_MODELS,
+  PROVIDER_HOSTS,
+  PROVIDER_KEY_URLS,
+  PROVIDER_LABELS,
+  providerForModel,
+} from '../shared/types';
 import { modelIcon } from '../shared/modelIcon';
 import { typeAhead } from '../shared/typeAhead';
 import type {
@@ -41,7 +51,7 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <p class="sec" id="connection-label">Connection</p>
 <section class="card" aria-labelledby="connection-label">
 <div class="row"><span class="label" id="key-label">API key</span><button id="key-edit" class="chip-button" type="button" aria-labelledby="key-label" aria-expanded="false">Add</button></div>
-<form id="key-form" class="key-form" hidden><label class="sr-only" for="key-input">API key</label><div class="key-line"><input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"><button type="submit" class="primary">Save</button></div><div class="key-foot"><p class="hint" id="key-hint">Stored on this device. Sent only to the selected provider when you ask.</p><button type="button" id="key-cancel" class="text-button">Cancel</button><button type="button" id="key-remove" class="text-button" hidden>Remove</button></div></form>
+<form id="key-form" class="key-form" hidden><label class="sr-only" for="key-input">API key</label><div class="key-line"><input id="key-input" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…"><button type="submit" class="primary">Save</button></div><div class="key-foot"><p class="hint" id="key-hint">Stored on this device. Sent only to the selected provider when you ask.</p><button type="button" id="key-test" class="text-button">Test</button><a id="key-link" class="text-button" href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer">Get a key</a><button type="button" id="key-cancel" class="text-button">Cancel</button><button type="button" id="key-remove" class="text-button" hidden>Remove</button></div></form>
 <div class="row"><span class="label" id="model-label">Model</span><div class="dropdown" id="model-dropdown"><button id="model-button" class="field" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="model-label"><span id="model-icon" class="model-glyph" aria-hidden="true"></span><span id="model-value">DeepSeek V4 Pro</span><span class="chev" aria-hidden="true"></span></button><div id="model-menu" class="model-menu" role="listbox" aria-labelledby="model-label" hidden>${modelOptionsHTML}</div></div></div>
 <button id="memory-open" class="row link-row" type="button" aria-controls="view-memory"><span class="label">Memory</span><span id="notes-count" class="count"></span><span class="chev" aria-hidden="true"></span></button>
 </section>
@@ -54,6 +64,12 @@ app.innerHTML = `<header class="top"><img id="portrait" class="portrait" src="ic
 <ul id="note-list" class="notes"></ul>
 <div id="note-pager" class="notes-pager" hidden><button id="note-prev" class="text-button" type="button">Prev</button><span id="note-page" class="count"></span><button id="note-next" class="text-button" type="button">Next</button></div>
 <p id="notes-empty" class="hint">Baleen remembers what you tell her.</p>
+<div class="memory-io">
+<div class="row"><span class="label">Obsidian vault</span><button id="memory-vault-save" class="chip-button" type="button">Save</button></div>
+<div class="row"><span class="label">Memory file</span><div class="row-pair"><button id="memory-download" class="chip-button" type="button">Download</button><button id="memory-import" class="chip-button" type="button">Import</button></div></div>
+<p class="hint">Save writes a copy to Baleen/memory.md; editing that file does not change memory. Download and Import move it as JSON.</p>
+</div>
+<input id="memory-file" type="file" accept=".json,application/json" hidden>
 </main>
 <main id="view-study" class="view" hidden>
 <div class="view-head"><button id="study-back" class="back" type="button"><span class="chev" aria-hidden="true"></span>Back</button><span class="view-title">Study</span></div>
@@ -380,6 +396,30 @@ async function main() {
   }
   must<HTMLButtonElement>('#study-keywords').onclick = () => void study('keywords');
   must<HTMLButtonElement>('#study-summarize').onclick = () => void study('summarize');
+  /** The picker needs a real window, so every vault action opens its own small popup. */
+  async function openWindow(
+    url: string,
+    width: number,
+    height: number,
+    caller: chrome.windows.Window,
+  ): Promise<void> {
+    const left = Math.round((caller.left ?? 0) + ((caller.width ?? width) - width) / 2);
+    const top = Math.round((caller.top ?? 0) + ((caller.height ?? height) - height) / 2);
+    const created = await chrome.windows.create({
+      url,
+      type: 'popup',
+      width,
+      height,
+      left,
+      top,
+      focused: true,
+    });
+    // macOS ignores the size on create and copies the caller's bounds; only an
+    // update that carries position and size resizes it.
+    if (created?.id) {
+      await chrome.windows.update(created.id, { state: 'normal', width, height, left, top });
+    }
+  }
   must<HTMLButtonElement>('#wiki-open').onclick = () => {
     void (async () => {
       const tab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
@@ -390,25 +430,13 @@ async function main() {
         return;
       }
       try {
-        const width = 420;
-        const height = 360;
         const caller = await chrome.windows.getCurrent();
-        const left = Math.round((caller.left ?? 0) + ((caller.width ?? width) - width) / 2);
-        const top = Math.round((caller.top ?? 0) + ((caller.height ?? height) - height) / 2);
-        const created = await chrome.windows.create({
-          url: chrome.runtime.getURL(`wiki.html?tab=${tab.id}`),
-          type: 'popup',
-          width,
-          height,
-          left,
-          top,
-          focused: true,
-        });
-        // macOS ignores the size on create and copies the caller's bounds; only an
-        // update that carries position and size resizes it.
-        if (created?.id) {
-          await chrome.windows.update(created.id, { state: 'normal', width, height, left, top });
-        }
+        await openWindow(
+          chrome.runtime.getURL(`wiki.html?tab=${tab.id}&win=${caller.id ?? ''}`),
+          420,
+          360,
+          caller,
+        );
         window.close();
       } catch (error) {
         studyStatus.textContent =
@@ -416,17 +444,92 @@ async function main() {
       }
     })();
   };
-  function downloadMarkdown(text: string, name: string) {
-    const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
+  must<HTMLButtonElement>('#memory-vault-save').onclick = () => {
+    void (async () => {
+      const notes = await readNotes();
+      const handle = await loadVault();
+      // A granted handle writes straight from the popup; the window is only for the first pick.
+      if (handle && (await canWrite(handle, false))) {
+        try {
+          await saveMemoryToVault(handle, notes);
+          status('Saved to Baleen/memory.md.');
+        } catch (error) {
+          status(
+            error instanceof Error ? error.message : 'Could not write to the vault.',
+            'error',
+          );
+        }
+        return;
+      }
+      try {
+        await openWindow(
+          chrome.runtime.getURL('memory.html'),
+          400,
+          320,
+          await chrome.windows.getCurrent(),
+        );
+        window.close();
+      } catch (error) {
+        status(error instanceof Error ? error.message : 'Could not open the memory window.', 'error');
+      }
+    })();
+  };
+  must<HTMLButtonElement>('#memory-download').onclick = () => {
+    void readNotes()
+      .then((notes) => {
+        const { text, name } = memoryDownload(notes);
+        downloadText(text, name, 'application/json');
+        status('Memory downloaded.');
+      })
+      .catch(report);
+  };
+  const memoryFile = must<HTMLInputElement>('#memory-file');
+  must<HTMLButtonElement>('#memory-import').onclick = () => {
+    // Reopening the same file should still fire a change.
+    memoryFile.value = '';
+    memoryFile.click();
+  };
+  memoryFile.onchange = () => {
+    const file = memoryFile.files?.[0];
+    if (!file) return;
+    void file
+      .text()
+      .then(parseMemoryJson)
+      .then(mergeNotes)
+      .then(async (counts) => {
+        notePageIndex = 0;
+        await loadNotes();
+        const total = counts.added + counts.updated;
+        status(
+          total
+            ? `Imported ${total} memor${total === 1 ? 'y' : 'ies'}${
+                counts.updated ? ` (${counts.updated} updated)` : ''
+              }.`
+            : 'Nothing new to import.',
+        );
+      })
+      .catch((error) =>
+        status(error instanceof Error ? error.message : 'Could not import.', 'error'),
+      );
+  };
+  function downloadText(text: string, name: string, type: string) {
+    const url = URL.createObjectURL(new Blob([text], { type }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${name}-${new Date().toISOString().slice(0, 10)}.md`;
+    link.download = name;
     link.rel = 'noopener';
     link.style.display = 'none';
     document.body.append(link);
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+  function downloadMarkdown(text: string, name: string) {
+    downloadText(
+      text,
+      `${name}-${new Date().toISOString().slice(0, 10)}.md`,
+      'text/markdown;charset=utf-8',
+    );
   }
   function exportChats(scope: ChatExportScope) {
     void pageCall<{ text: string }>({ type: 'fg:export-chats', scope })
@@ -682,6 +785,8 @@ async function main() {
   const keyForm = must<HTMLFormElement>('#key-form');
   const keyInput = must<HTMLInputElement>('#key-input');
   const keyEdit = must<HTMLButtonElement>('#key-edit');
+  const keyTest = must<HTMLButtonElement>('#key-test');
+  const keyLink = must<HTMLAnchorElement>('#key-link');
   const keyRemove = must<HTMLButtonElement>('#key-remove');
   const keyLabel = must('#key-label');
   const keyFieldLabel = must<HTMLLabelElement>('label[for="key-input"]');
@@ -714,7 +819,45 @@ async function main() {
     keyHint.textContent = apiKey
       ? `Saved ${keyPreview(forProvider, apiKey)}. Sent only to ${host} when you ask.`
       : `Stored on this device. Sent only to ${host} when you ask.`;
+    keyLink.href = PROVIDER_KEY_URLS[forProvider];
+    keyLink.title = `Open ${PROVIDER_LABELS[forProvider]} to create a key`;
   }
+  /** One tiny completion proves the key works before a page ever asks a real question. */
+  function testKey(forProvider: Provider, key?: string): Promise<void> {
+    return chrome.runtime
+      .sendMessage({ type: 'fg:test-key', provider: forProvider, key: key ?? '' })
+      .then((reply: { ok?: boolean; error?: string } | undefined) => {
+        if (!reply?.ok) throw new Error(reply?.error ?? 'The key was not accepted.');
+      });
+  }
+  keyTest.onclick = () => {
+    const forProvider = provider();
+    const typedText = keyInput.value.trim();
+    const typed = typedText ? normalizeApiKey(typedText, forProvider) : '';
+    if (typedText && !typed) {
+      keyHint.textContent = `That does not look like a ${PROVIDER_LABELS[forProvider]} API key.`;
+      return;
+    }
+    if (!typed && !apiKey) {
+      keyHint.textContent = 'Add a key first, then test it.';
+      return;
+    }
+    keyTest.disabled = true;
+    keyTest.textContent = 'Testing…';
+    keyHint.textContent = `Contacting ${PROVIDER_HOSTS[forProvider]}…`;
+    testKey(forProvider, typed || undefined)
+      .then(() => {
+        keyHint.textContent = typed ? 'Key works. Save it to keep it.' : 'Key works. It is saved.';
+      })
+      .catch((error) => {
+        keyHint.textContent =
+          error instanceof Error ? error.message : 'The provider did not accept that key.';
+      })
+      .finally(() => {
+        keyTest.disabled = false;
+        keyTest.textContent = 'Test';
+      });
+  };
   keyEdit.onclick = () => showKeyForm(keyForm.hidden);
   must<HTMLButtonElement>('#key-cancel').onclick = () => showKeyForm(false);
   keyRemove.onclick = () => {
@@ -739,7 +882,17 @@ async function main() {
       .then(loadKey)
       .then(() => {
         showKeyForm(false);
-        status('Key saved.');
+        status('Key saved. Testing it…');
+        return testKey(forProvider, key).then(
+          () => status(`${PROVIDER_LABELS[forProvider]} answered. The key works.`),
+          (error) =>
+            status(
+              `Key saved, but the test failed: ${
+                error instanceof Error ? error.message : 'no answer.'
+              }`,
+              'error',
+            ),
+        );
       })
       .catch(report);
   };

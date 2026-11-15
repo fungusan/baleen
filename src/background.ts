@@ -1,9 +1,15 @@
-import { askModel } from './shared/chat';
+import { askModel, askModelStream, testKey } from './shared/chat';
 import { asksAboutBaleen } from './shared/help';
-import { readApiKey } from './shared/key';
+import { normalizeApiKey, readApiKey } from './shared/key';
 import { readSettings, sanitizeSettings, writeSettings } from './shared/settings';
-import { DEFAULT_MODEL, MODELS, PROVIDER_LABELS, providerForModel } from './shared/types';
-import type { AskAction, AskResult, ChatTurn, Model } from './shared/types';
+import {
+  DEFAULT_MODEL,
+  MODELS,
+  PROVIDER_LABELS,
+  PROVIDERS,
+  providerForModel,
+} from './shared/types';
+import type { AskAction, AskRequest, AskResult, ChatTurn, Model, Provider } from './shared/types';
 
 const ASK_ACTIONS = new Set<string>(['chat', 'talk', 'summarize', 'keywords', 'title', 'wiki']);
 const MODEL_IDS = new Set<string>(MODELS);
@@ -48,10 +54,20 @@ function enqueue<T>(operation: () => Promise<T>): Promise<T> {
   return job;
 }
 
-/** One explicit, user-triggered call. Nothing is sent until a menu action or Send is pressed. */
-async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promise<AskResult> {
-  const fromExtension = sender.url?.startsWith(chrome.runtime.getURL('')) ?? false;
-  if (!sender.tab && !fromExtension) throw new Error('Open this from a web page.');
+interface PreparedAsk {
+  request: AskRequest;
+  key: string;
+  provider: Provider;
+  label: string;
+  timeout: number;
+}
+/** Validation shared by the message path, the streaming port, and the key test. */
+async function prepareAsk(
+  raw: unknown,
+  sender: chrome.runtime.MessageSender | undefined,
+): Promise<PreparedAsk> {
+  const fromExtension = sender?.url?.startsWith(chrome.runtime.getURL('')) ?? false;
+  if (!sender?.tab && !fromExtension) throw new Error('Open this from a web page.');
   const request = object(raw);
   if (typeof request.action !== 'string' || !ASK_ACTIONS.has(request.action))
     throw new Error('Unsupported action.');
@@ -87,38 +103,141 @@ async function answer(raw: unknown, sender: chrome.runtime.MessageSender): Promi
   const thinking = conversational && request.thinking === true;
   const key = await readApiKey(provider);
   if (!key) throw new Error(`Add your ${label} API key in the popup first.`);
+  return {
+    request: {
+      action,
+      model,
+      text,
+      title,
+      prompt: conversational ? prompt : undefined,
+      images: conversational ? images : undefined,
+      history: conversational ? historyFrom(request.history) : undefined,
+      notes: conversational ? notes : undefined,
+      thinking,
+    },
+    key,
+    provider,
+    label,
+    // A wiki compile writes several pages in one reply, so it gets a longer wall than a chat answer.
+    timeout: action === 'wiki' ? 300_000 : TIMEOUTS[model],
+  };
+}
+
+function askFailure(error: unknown, label: string): Error {
+  if (error instanceof Error && error.name === 'AbortError')
+    return new Error(`${label} took too long. Try again.`);
+  if (error instanceof TypeError)
+    return new Error(`Could not reach ${label}. Check your connection.`);
+  return error instanceof Error ? error : new Error('Baleen did not answer.');
+}
+
+/** One explicit, user-triggered call. Nothing is sent until a menu action or Send is pressed. */
+async function answer(
+  raw: unknown,
+  sender: chrome.runtime.MessageSender | undefined,
+): Promise<AskResult> {
+  const plan = await prepareAsk(raw, sender);
   const controller = new AbortController();
-  // A wiki compile writes several pages in one reply, so it gets a longer wall than a chat answer.
-  const timer = setTimeout(
-    () => controller.abort(),
-    action === 'wiki' ? 300_000 : TIMEOUTS[model],
-  );
+  const timer = setTimeout(() => controller.abort(), plan.timeout);
   try {
-    return await askModel(
-      key,
-      {
-        action,
-        model,
-        text,
-        title,
-        prompt: conversational ? prompt : undefined,
-        images: conversational ? images : undefined,
-        history: conversational ? historyFrom(request.history) : undefined,
-        notes: conversational ? notes : undefined,
-        thinking,
-      },
-      controller.signal,
-    );
+    return await askModel(plan.key, plan.request, controller.signal);
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError')
-      throw new Error(`${label} took too long. Try again.`);
-    if (error instanceof TypeError)
-      throw new Error(`Could not reach ${label}. Check your connection.`);
-    throw error;
+    throw askFailure(error, plan.label);
   } finally {
     clearTimeout(timer);
   }
 }
+
+/** One minimal completion, so the popup can confirm a key before it is needed for real work. */
+async function checkKey(raw: unknown): Promise<void> {
+  const message = object(raw);
+  const provider = message.provider;
+  if (typeof provider !== 'string' || !(PROVIDERS as readonly string[]).includes(provider))
+    throw new Error('Choose a provider first.');
+  // The form can test an unsaved key; then nothing is stored until the reader saves it.
+  const typed =
+    typeof message.key === 'string' ? normalizeApiKey(message.key, provider as Provider) : null;
+  const key = typed ?? (await readApiKey(provider as Provider));
+  if (!key) throw new Error(`Add your ${PROVIDER_LABELS[provider as Provider]} API key first.`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    await testKey(key, provider as Provider, controller.signal);
+  } catch (error) {
+    throw askFailure(error, PROVIDER_LABELS[provider as Provider]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const STREAM_PORT = 'fg:ask-stream';
+/**
+ * Chat answers stream over a port: each visible piece is posted as it arrives, and the finished
+ * result (with buffered reasoning and usage) follows. The page's disconnect aborts the request.
+ */
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== STREAM_PORT) return;
+  let started = false;
+  let controller: AbortController | null = null;
+  port.onDisconnect.addListener(() => controller?.abort());
+  port.onMessage.addListener((message: unknown) => {
+    if (started) return;
+    started = true;
+    const m = object(message);
+    if (m.type !== 'ask') {
+      try {
+        port.postMessage({ type: 'error', message: 'Unsupported extension message.' });
+        port.disconnect();
+      } catch {
+        /* The page already went away. */
+      }
+      return;
+    }
+    void (async () => {
+      let plan: PreparedAsk;
+      try {
+        plan = await prepareAsk(m.request, port.sender);
+      } catch (error) {
+        try {
+          port.postMessage({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Baleen did not answer.',
+          });
+          port.disconnect();
+        } catch {
+          /* The page already went away. */
+        }
+        return;
+      }
+      controller = new AbortController();
+      const active = controller;
+      const timer = setTimeout(() => active.abort(), plan.timeout);
+      try {
+        const data = await askModelStream(plan.key, plan.request, active.signal, (text) => {
+          try {
+            port.postMessage({ type: 'delta', text });
+          } catch {
+            /* The page closed mid-answer; the request is aborted on disconnect. */
+          }
+        });
+        port.postMessage({ type: 'done', data });
+      } catch (error) {
+        try {
+          port.postMessage({ type: 'error', message: askFailure(error, plan.label).message });
+        } catch {
+          /* The page already went away. */
+        }
+      } finally {
+        clearTimeout(timer);
+        try {
+          port.disconnect();
+        } catch {
+          /* Already gone. */
+        }
+      }
+    })();
+  });
+});
 const WEB_PAGE = /^https?:/;
 let contentFiles: Promise<string[]> | undefined;
 /**
@@ -189,6 +308,10 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, reply) => {
     void answer(m.request, sender).then((data) => reply({ ok: true, data }), failed);
     return true;
   }
+  if (m.type === 'fg:test-key') {
+    void checkKey(m).then(() => reply({ ok: true }), failed);
+    return true;
+  }
   if (m.type === 'fg:ensure') {
     void ensureEverywhere().then(() => reply({ ok: true }), failed);
     return true;
@@ -228,6 +351,8 @@ chrome.webRequest.onHeadersReceived.addListener(
 // Existing tabs keep the script they started with when the extension updates, so re-inject after
 // every install or update instead of waiting for the user to reload each page.
 chrome.runtime.onInstalled.addListener(() => {
+  // The local wiki mirror is retired; drop old copies so saved pages do not sit in storage.
+  void chrome.storage.local.remove('fungusan-gal.wiki.v1').catch(() => undefined);
   void ensureEverywhere().catch(() => undefined);
 });
 // The card's own Hide button writes the same flag, so this shortcut brings her back as well.

@@ -8,7 +8,7 @@ export default defineConfig({
   build: {
     target: 'chrome120',
     rollupOptions: {
-      input: { viewer: 'viewer.html', wiki: 'wiki.html' },
+      input: { viewer: 'viewer.html', wiki: 'wiki.html', memory: 'memory.html' },
     },
   },
 });

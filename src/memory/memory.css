@@ -1,0 +1,10 @@
+/* The memory window reuses the wiki tool window's tokens, cards, and controls. */
+#memory-stats {
+  margin-top: 10px;
+}
+#saved {
+  margin-top: 10px;
+}
+#saved + .foot-note {
+  margin-top: 10px;
+}
