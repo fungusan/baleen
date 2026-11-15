@@ -2,13 +2,10 @@
 
 ![Baleen — chat with the page you're reading](store/promo/readme-hero.png)
 
-Manifest V3 Chromium extension (`2.1.0`). She appears on every HTTP(S) page as one of ten idle
-drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
-section you highlight, and runs keywords or a whole-page summary through your own DeepSeek, Kimi,
-Qwen, GLM, or MiniMax API key. Top-level PDFs open in a bundled reader with the same selection chat
-and Study actions. Study can also compile the page into a linked wiki in an Obsidian vault.
-Preferences, her memory of you, and open section chats are saved in the extension; the memory can
-also be written to the vault as a Markdown copy.
+A Manifest V3 Chromium extension (`2.1.0`): a whale companion on every HTTP(S) page who chats about
+what you highlight, summarizes the page, and compiles it into an Obsidian wiki — through your own
+DeepSeek, Kimi, Qwen, GLM, or MiniMax key. Top-level PDFs open in the bundled reader with the same
+selection chat.
 
 ## Companion
 
@@ -192,6 +189,14 @@ trigger sends text, and only its usual selected section or page passage.
 
 `public/pdf/` holds the pdf.js worker, CMaps, standard fonts, WASM decoders, and ICC profiles copied
 from `pdfjs-dist` 6.4.299 (Apache-2.0, license included).
+
+## Release notes
+
+**2.1.0** — replies stream in as the model writes them, on all five providers. Study compiles
+several tabs into one wiki session and keeps the Obsidian export. Memory imports and exports as
+JSON and saves a copy to `Baleen/memory.md`; the newest turn now carries it, so corrections beat
+older ones. Keys can be tested from the popup, and she no longer infers the reader's gender.
+Earlier versions are in the commit history.
 
 ## Build
 
