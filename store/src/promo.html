@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Baleen promo boards</title>
+<style>
+  :root {
+    --cream: #f5f2ec;
+    --navy: #0e2a55;
+    --sage: #849f5d;
+    --sage-light: #9ab86e;
+    --deep: #0a1a3a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; }
+  .board {
+    position: relative;
+    overflow: hidden;
+    display: none;
+    color: var(--cream);
+    background-size: cover;
+    background-position: center;
+  }
+  body[data-board="marquee"] .marquee,
+  body[data-board="tile"] .tile,
+  body[data-board="og"] .og { display: block; }
+
+  .board.marquee { width: 1400px; height: 560px; background-image: url(backdrop-marquee.png); }
+  .board.tile    { width: 440px;  height: 280px; background-image: url(backdrop-tile.png); }
+  .board.og      { width: 1200px; height: 630px; background-image: url(backdrop-og.png); }
+
+  .scrim { position: absolute; inset: 0; }
+  .marquee .scrim, .og .scrim {
+    background:
+      linear-gradient(180deg, rgba(7, 17, 40, 0.90) 0%, rgba(7, 17, 40, 0.68) 38%, rgba(7, 17, 40, 0.28) 60%, rgba(7, 17, 40, 0) 74%),
+      linear-gradient(90deg, rgba(7, 17, 40, 0.74) 0%, rgba(7, 17, 40, 0.42) 32%, rgba(7, 17, 40, 0.06) 60%, rgba(7, 17, 40, 0) 76%);
+  }
+  .tile .scrim {
+    background:
+      linear-gradient(180deg, rgba(7, 17, 40, 0.86) 0%, rgba(7, 17, 40, 0.56) 44%, rgba(7, 17, 40, 0.16) 66%, rgba(7, 17, 40, 0) 80%),
+      linear-gradient(90deg, rgba(7, 17, 40, 0.72) 0%, rgba(7, 17, 40, 0.34) 40%, rgba(7, 17, 40, 0) 72%);
+  }
+
+  .copy { position: absolute; }
+  .marquee .copy { left: 76px; top: 58px; width: 660px; }
+  .og .copy { left: 64px; top: 54px; width: 620px; }
+  .tile .copy { left: 26px; top: 24px; width: 286px; }
+
+  .brand { display: flex; align-items: center; gap: 13px; }
+  .brand img { display: block; border-radius: 9px; }
+  .marquee .brand img, .og .brand img { width: 40px; height: 40px; }
+  .tile .brand img { width: 26px; height: 26px; border-radius: 6px; gap: 8px; }
+  .wordmark { font-weight: 600; letter-spacing: -0.01em; }
+  .marquee .wordmark, .og .wordmark { font-size: 27px; }
+  .tile .wordmark { font-size: 17px; }
+
+  .eyebrow {
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(245, 242, 236, 0.66);
+  }
+  .marquee .eyebrow { margin-top: 40px; font-size: 11px; letter-spacing: 0.34em; }
+  .og .eyebrow { margin-top: 34px; font-size: 10.5px; letter-spacing: 0.32em; }
+  .tile .eyebrow { margin-top: 26px; font-size: 8px; letter-spacing: 0.26em; }
+
+  h1 { margin: 0; font-weight: 600; letter-spacing: -0.022em; }
+  .marquee h1 { margin-top: 15px; font-size: 62px; line-height: 1.05; }
+  .og h1 { margin-top: 14px; font-size: 56px; line-height: 1.06; }
+  .tile h1 { margin-top: 12px; font-size: 27px; line-height: 1.2; letter-spacing: -0.017em; }
+
+  .sub { color: rgba(245, 242, 236, 0.78); font-weight: 400; }
+  .marquee .sub { margin-top: 22px; font-size: 17px; line-height: 1.55; max-width: 486px; }
+  .og .sub { margin-top: 20px; font-size: 16px; line-height: 1.55; max-width: 440px; }
+
+  .providers {
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(245, 242, 236, 0.6);
+    white-space: nowrap;
+  }
+  .marquee .providers { position: absolute; left: 76px; bottom: 132px; font-size: 11px; letter-spacing: 0.2em; color: rgba(245, 242, 236, 0.74); }
+  .og .providers { position: absolute; left: 64px; bottom: 138px; font-size: 10px; letter-spacing: 0.18em; color: rgba(245, 242, 236, 0.74); }
+  .tile .providers { display: none; }
+
+  .girl { position: absolute; display: block; filter: drop-shadow(0 26px 44px rgba(4, 12, 28, 0.5)); }
+  .marquee .girl { right: 74px; bottom: -14px; height: 552px; }
+  .og .girl { right: 42px; bottom: -12px; height: 612px; }
+  .tile .girl { right: -24px; bottom: -10px; height: 268px; }
+
+  .card {
+    position: absolute;
+    border-radius: 15px;
+    background: rgba(250, 248, 243, 0.97);
+    box-shadow: 0 22px 52px rgba(4, 12, 28, 0.38);
+    color: #22334d;
+  }
+  .marquee .card { left: 694px; top: 158px; width: 312px; padding: 15px 16px 13px; }
+  .og .card { left: 512px; top: 348px; width: 292px; padding: 14px 15px 12px; }
+
+  .card-head { display: flex; align-items: center; gap: 8px; }
+  .card-head img { width: 15px; height: 15px; border-radius: 4px; }
+  .card-head .name { font-size: 12px; font-weight: 600; color: var(--navy); letter-spacing: -0.005em; }
+  .card-head .model { margin-left: auto; font-size: 10.5px; color: rgba(34, 51, 77, 0.5); }
+  .bubble {
+    margin-top: 11px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #e9efd9;
+    color: #2b3c22;
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+  .answer { margin-top: 10px; font-size: 12.5px; line-height: 1.5; color: #2a3a54; }
+  .card-foot {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 12px; padding-top: 9px;
+    border-top: 1px solid rgba(14, 42, 85, 0.1);
+    font-size: 10.5px; color: rgba(34, 51, 77, 0.56);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); }
+</style>
+</head>
+<body data-board="marquee">
+
+  <section class="board marquee">
+    <div class="scrim"></div>
+    <img class="girl" src="../../public/characters/baleen/full.webp" alt="">
+    <div class="card">
+      <div class="card-head">
+        <img src="../../public/icons/32.png" alt="">
+        <span class="name">Baleen</span>
+        <span class="model">DeepSeek V4 Pro</span>
+      </div>
+      <div class="bubble">What is baleen made of?</div>
+      <div class="answer">Keratin — the same protein as your hair and fingernails. A rack of plates hangs from the upper jaw.</div>
+      <div class="card-foot"><span class="dot"></span>Filter feeding · answered from this page</div>
+    </div>
+    <div class="copy">
+      <div class="brand">
+        <img src="../../public/icons/128.png" alt="">
+        <span class="wordmark">Baleen</span>
+      </div>
+      <div class="eyebrow">Reading companion</div>
+      <h1>Chat with the page<br>you're reading.</h1>
+      <div class="sub">Highlight a passage, ask a question, or summarise the whole page. Bring your own key — no account, no backend.</div>
+    </div>
+    <div class="providers">DeepSeek · Kimi · Qwen · GLM · MiniMax</div>
+  </section>
+
+  <section class="board tile">
+    <div class="scrim"></div>
+    <img class="girl" src="../../public/characters/baleen/full.webp" alt="">
+    <div class="copy">
+      <div class="brand">
+        <img src="../../public/icons/128.png" alt="">
+        <span class="wordmark">Baleen</span>
+      </div>
+      <h1>A whale companion<br>for the pages<br>you read.</h1>
+    </div>
+    <div class="providers">DeepSeek · Kimi · Qwen · GLM · MiniMax</div>
+  </section>
+
+  <section class="board og">
+    <div class="scrim"></div>
+    <img class="girl" src="../../public/characters/baleen/full.webp" alt="">
+    <div class="card">
+      <div class="card-head">
+        <img src="../../public/icons/32.png" alt="">
+        <span class="name">Baleen</span>
+        <span class="model">DeepSeek V4 Pro</span>
+      </div>
+      <div class="bubble">What is baleen made of?</div>
+      <div class="answer">Keratin — the same protein as your hair and fingernails. A rack of plates hangs from the upper jaw.</div>
+      <div class="card-foot"><span class="dot"></span>Filter feeding · answered from this page</div>
+    </div>
+    <div class="copy">
+      <div class="brand">
+        <img src="../../public/icons/128.png" alt="">
+        <span class="wordmark">Baleen</span>
+      </div>
+      <div class="eyebrow">Reading companion</div>
+      <h1>Chat with the page<br>you're reading.</h1>
+      <div class="sub">Highlight a passage, ask a question, or summarise the whole page. Bring your own key — no account, no backend.</div>
+    </div>
+    <div class="providers">DeepSeek · Kimi · Qwen · GLM · MiniMax</div>
+  </section>
+
+<script>
+  const board = location.hash.slice(1) || 'marquee';
+  document.body.dataset.board = board;
+</script>
+</body>
+</html>
