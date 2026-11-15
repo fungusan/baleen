@@ -1,11 +1,12 @@
 # Baleen
 
-Manifest V3 Chromium extension (`2.0.1`). She appears on every HTTP(S) page as one of ten idle
+Manifest V3 Chromium extension (`2.1.0`). She appears on every HTTP(S) page as one of ten idle
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
 section you highlight, and runs keywords or a whole-page summary through your own DeepSeek, Kimi,
 Qwen, GLM, or MiniMax API key. Top-level PDFs open in a bundled reader with the same selection chat
 and Study actions. Study can also compile the page into a linked wiki in an Obsidian vault.
-Preferences, her memory of you, and open section chats are saved in the extension.
+Preferences, her memory of you, and open section chats are saved in the extension; the memory can
+also be written to the vault as a Markdown copy.
 
 ## Companion
 
@@ -16,11 +17,13 @@ the **Pumpkin** cat and the **Moonlit** flute dress, and **GLM-5.3** the gothic 
 and the **Reporter**. Every model with two drawings is switchable under **Appearance › Outfit**. No outfit adds buttons to the page. The toolbar popup keeps the original
 compact panel: **Appearance** (theme, show on pages and animate, size, outfit) and **Connection**
 (API key, model, and memory). Each provider keeps its own key, so switching between DeepSeek, Kimi,
-Qwen, GLM, and MiniMax swaps the key row. **Study** opens a second level in the same popup for keywords, summarize,
+Qwen, GLM, and MiniMax swaps the key row. **Test** sends one tiny request so a bad key shows up
+before a real question, and **Get a key** opens that provider's console. **Study** opens a second level in
+the same popup for keywords, summarize,
 and one chats card with two choices — **Reading chat** and **Study chats** — each revealing its
 export and clear or close actions. Connection also carries **Memory**, Baleen's memory of you,
-whose count sits on the row and whose own page shows five entries at a time. **Back** returns to
-the settings. Every surface writes the same
+whose count sits on the row and whose own page shows five entries at a time and can write the list
+as Markdown to the Obsidian vault or download it as JSON. **Back** returns to the settings. Every surface writes the same
 settings, so a choice applies to every tab at once and survives a reload. Each drawing has one idle
 render. Her listening, thinking, speaking, joy, dejection and rest beats are CSS keyframes on
 that drawing — no per-state art — and they are driven only by what you do in the popup or her own
@@ -38,7 +41,8 @@ Click her (or focus her and press Enter) and a small speech bubble appears above
 visible message field: the same hairline composer the section chat uses, so it is clear where to
 type, and Enter sends.
 Send a question and she replaces the field with exactly one short sentence in a rounded, friendly
-face, plain text, like a friend replying. The sentence stays for a few seconds and then fades; it is
+face, plain text, like a friend replying. The sentence streams in as it is written. It stays for a
+few seconds and then fades; it is
 not replayed the next time you click her, which opens the field again. There is no window, thread,
 header, or model picker. Before the request, the page is searched in the tab: paragraphs are scored
 against your message and only the passages that match travel with it, about 3,500 characters, never
@@ -107,19 +111,23 @@ stored in `chrome.storage.local`, never shown again after saving, and never reac
 
 ## Wiki for Obsidian
 
-The **Wiki for Obsidian** row in Study opens a small window connected to the page you were on. It
-shows one step at a time: compile, review, then save. **Compile** sends that page's passages, the
-questions you asked about it, the memory, and the titles, aliases, summaries, and short excerpts of
-pages already compiled for that source to the selected model once, and turns the reply into a small wiki: an immutable source
-page with numbered passages, two to five concept pages whose claims carry passage-level citations, a
-context page explaining why the pages were phrased for you, an index, and a detailed edit-history
-log. Everything that decides what lands on disk is computed locally — link targets are checked
+The **Wiki for Obsidian** row in Study opens a small window connected to the page you were on, and
+lists the other pages open in the same browser window. It shows one step at a time: compile, review,
+then save. Tick up to five pages and **Compile** reads each one and sends its passages, the questions
+you asked about it, the memory, and the titles, aliases, summaries, and short excerpts of pages
+already compiled for that folder to the selected model, one request per page. Later pages see the
+pages the session already made, so a draft can link to or extend them. Each reply becomes an immutable source
+page with numbered passages, two to five concept pages whose claims carry passage-level citations, and
+a context page explaining why the pages were phrased for you; the session shares one index across all
+its sources and writes a detailed edit-history log. Everything that decides what lands on disk is
+computed locally — link targets are checked
 against the compiled pages, unknown links are unwrapped to their label, and citations to passages
 that do not exist are dropped.
 
-Review the drafted pages, then choose an Obsidian vault folder once. Baleen remembers the handle and
-writes plain Markdown under `Baleen/<page title>/` in that folder, one folder per reading session, so
-two sources never overwrite each other. Recompiling a page continues its revision numbers and reads
+Review the drafted pages together, then choose an Obsidian vault folder once. Baleen remembers the
+handle and writes plain Markdown under `Baleen/<page title>/` for a single page or
+`Baleen/<first page title> +N/` for a session, so separate readings never overwrite each other.
+Recompiling a page continues its revision numbers and reads
 that folder's `index.md`: pages it lists stay part of the wiki, new pages can link to them, and the
 index simply lists them with everything else — their files are not rewritten for this. A draft that
 covers the same idea as a listed page, even under a differently worded title, extends that page
@@ -155,7 +163,11 @@ key yourself such as `tone` with a value such as `Prefers short, concrete answer
 a short paragraph), edit it, or delete it; keys are matched case-insensitively, so saving the same
 key updates it. Memory travels with section and reading chats as reference, newest first, up to
 about 3,000 characters. A section chat reads and writes the same list but still sends only its
-selected section, while her reading chat answers in one short sentence. Each API key sits in the
+selected section, while her reading chat answers in one short sentence. At the bottom of the Memory
+page, **Obsidian vault → Save** writes the whole list to `Baleen/memory.md` in the vault you chose
+for Wiki, asking for the folder the first time and replacing that file on each save; **Download**
+saves a JSON copy, and **Import** merges one back by key, newest first. The vault file is a
+readable copy — editing it in Obsidian does not change what Baleen remembers. Each API key sits in the
 same local storage and is sent only to its provider — `https://api.deepseek.com`,
 `https://api.moonshot.ai`, `https://dashscope-intl.aliyuncs.com`, `https://api.z.ai`, or
 `https://api.minimax.io` — when you ask.
@@ -199,6 +211,7 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/viewer/` — bundled pdf.js reader: lazy page rendering, selectable text layer, whole-document
   text extraction for Study, download and open-original escape hatches.
 - `src/popup/` — the compact Appearance and Connection panel, Study, and the Memory page.
+- `src/memory/` — the small window that writes the memory list into the Obsidian vault.
 - `src/background.ts` — serialized preference writes, the show/hide shortcut, tab re-injection, and
   the model requests.
 - `src/shared/chat.ts` — provider client (DeepSeek, Kimi, Qwen, GLM, and MiniMax), request bodies,
@@ -207,6 +220,7 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/shared/help.ts` — the trusted built-in reference about Baleen, attached only to messages that
   ask about the extension.
 - `src/shared/notes.ts` — Baleen's memory of the reader, kept as editable key-value pairs.
+- `src/shared/memoryJson.ts` — the memory-only JSON file behind Download and Import.
 - `src/content/` — companion card, the anchored section chat windows, and the reading chat.
 - `src/content/retrieve.ts` — the local passage ranker that keeps whole pages out of requests.
 - `src/wiki/` — the wiki tab and the vault writer (folder picker, revisions, ownership checks).
@@ -215,7 +229,7 @@ Load the generated `dist/` folder from `chrome://extensions` with **Developer mo
 - `src/shared/` — character metadata, settings sanitization, and message types.
 - `public/characters/` — her bundled WebP renders, one per drawing.
 - `public/pdf/` — pdf.js worker, CMaps, fonts, WASM decoders, and ICC profiles.
-- `public/icons/` — toolbar icons, rasterized from `baleen.svg`.
+- `public/icons/` — toolbar icons, rasterized from `design/baleen.svg`.
 - `art-src/baleen/` — the supplied cut-outs behind the shipped renders.
 
 ## Artwork
