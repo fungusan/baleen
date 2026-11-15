@@ -1,5 +1,7 @@
 # Baleen
 
+![Baleen — chat with the page you're reading](store/promo/readme-hero.png)
+
 Manifest V3 Chromium extension (`2.1.0`). She appears on every HTTP(S) page as one of ten idle
 drawings, texts with you about the page in a one-line reading chat, opens a chat window beside any
 section you highlight, and runs keywords or a whole-page summary through your own DeepSeek, Kimi,
